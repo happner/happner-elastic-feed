@@ -9,15 +9,21 @@
     "chai": "^3.5.0",
     "expect.js": "^0.3.1",
     "mocha": "*",
+    "request": "^2.81.0",
     "rimraf": "^2.4.4"
   },
   "private": true,
   "dependencies": {
-    "happner-2": "2.7.5",
+    "binary-search-tree": "^0.2.6",
+    "lru-cache": "^4.1.1",
+    "underscore.string": "^3.3.4",
     "async": "1.5.2",
     "bluebird": "2.10.2",
     "elasticsearch": "13.2.0",
+    "happn-3": "^1.13.3",
     "happn-logger": "0.0.1",
-    "uuid": "3.1.0"
+    "happner-2": "2.7.5",
+    "uuid": "3.1.0",
+    "shortid": "2.2.4"
   }
 }

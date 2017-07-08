@@ -8,9 +8,12 @@ describe('sanity', function () {
 
   var path = require('path');
 
+  var elasticFeed = require('..');//require('happner-elastic-feed');
+
   this.timeout(5000);
 
   var happnConfig = {
+    secure:true,
     services: {
       data: {
         config: {
@@ -49,19 +52,35 @@ describe('sanity', function () {
     happn: happnConfig,
     modules: {
       "service": {
-        path: path.resolve("../lib/service")
+        path: elasticFeed.service
       },
       "portal": {
-        path: path.resolve("../lib/portal")
+        path: elasticFeed.portal
       },
       "queue": {
-        path: path.resolve("../lib/queue")
+        path: elasticFeed.queue
       },
-      "integrator": {
-        path: path.resolve("../lib/integrator")
+      "feed": {
+        path: elasticFeed.feed
+      }
+    },
+    components:{
+      "service":{
+        startMethod: "initialize"
       },
-      "api": {
-        path: path.resolve("../lib/api")
+      "portal": {
+        web: {
+          routes: {
+            "feed": "feed",
+            "admin": "admin"
+          }
+        }
+      },
+      "queue":{
+        startMethod: "initialize"
+      },
+      "feed":{
+        startMethod: "initialize"
       }
     }
   };
@@ -69,6 +88,7 @@ describe('sanity', function () {
   var remoteConfig = {
     name: 'happner-elastic-warehouse',
     port: 55001,
+    secure:true,
     modules: {
       "logger": {
         path: require("./fixtures/logger")
@@ -140,6 +160,18 @@ describe('sanity', function () {
   });
 
   it('should create and list a feed', function (callback) {
+
+  });
+
+  it('should push some data into the warehouse and ensure the feed indexes contain the data', function (callback) {
+
+  });
+
+  it('access the portal feed view', function (callback) {
+
+  });
+
+  it('access the portal admin view', function (callback) {
 
   });
 
