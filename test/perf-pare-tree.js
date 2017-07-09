@@ -25,7 +25,7 @@ describe('func-wild-tree', function () {
     }
   };
 
-  var SUBSCRIPTION_COUNT = 500;
+  var SUBSCRIPTION_COUNT = 10000;
 
   var DUPLICATE_KEYS = 3;
 
@@ -128,30 +128,7 @@ describe('func-wild-tree', function () {
       });
     });
 
-    expect(searchResults).to.eql(require('./fixtures/expected-results'));
-
-    return done();
-  });
-
-  it('adds and verifies random non wildcard-subscriptions ', function (done) {
-
-    this.timeout(300000);
-
-    var subscriptions = random.randomPaths({duplicate:DUPLICATE_KEYS, count:SUBSCRIPTION_COUNT});
-
-    var clients = random.string({count:CLIENT_COUNT});
-
-    var subscriptionTree = new PareTree();
-
-    var subscriptionResults = {};
-
-    subscriptions.forEach(function(subscriptionPath){
-
-      clients.forEach(function(sessionId){
-
-        subscriptionTree.add(subscriptionPath, {key:sessionId, data:{test:"data"}});
-      });
-    });
+    //expect(searchResults).to.eql(require('./fixtures/expected-results'));
 
     return done();
   });
@@ -172,6 +149,8 @@ describe('func-wild-tree', function () {
 
     var searched = 0;
 
+    var startedInsert = Date.now();
+
     subscriptions.forEach(function(subscriptionPath){
 
       subscriptionPath = subscriptionPath.substring(0, subscriptionPath.length - 1) + '*';
@@ -188,20 +167,24 @@ describe('func-wild-tree', function () {
       });
     });
 
+    var endedInsert = Date.now();
+
+    var startedSearches = Date.now();
+
     subscriptions.forEach(function(subscriptionPath){
 
       subscriptionPath = subscriptionPath.substring(0, subscriptionPath.length - 1) + '*';
 
-      subscriptionTree.search(subscriptionPath).forEach(function(recipient){
-        expect(subscriptionResults[recipient.key].paths[subscriptionPath]).to.be(true);
-      });
+      subscriptionTree.search(subscriptionPath);
 
       searched++;
     });
 
-    console.log('did ' + inserts + ' wildcard inserts');
+    var endedSearches = Date.now();
 
-    console.log('did ' + searched + ' wildcard searches');
+    console.log('did ' + inserts + ' wildcard inserts in ' + (endedInsert - startedInsert) + ' milliseconds');
+
+    console.log('did ' + searched + ' wildcard searches in ' + (endedSearches - startedSearches) + ' milliseconds, in a tree with += ' + inserts + ' nodes.');
 
     return done();
   });
@@ -239,9 +222,7 @@ describe('func-wild-tree', function () {
 
     subscriptions.forEach(function(subscriptionPath){
 
-      subscriptionTree.search(subscriptionPath).forEach(function(recipient){
-        expect(subscriptionResults[recipient.key].paths[subscriptionPath]).to.be(true);
-      });
+      subscriptionTree.search(subscriptionPath);
 
       searched++;
     });
@@ -258,7 +239,7 @@ describe('func-wild-tree', function () {
 
   var N_SUBSCRIPTION_COUNT = 10000;
 
-  var SEARCHES = 1;
+  var SEARCHES = 5;
 
   it('searches N subscriptions', function (done) {
 
@@ -290,9 +271,7 @@ describe('func-wild-tree', function () {
 
       subscriptionPath = subscriptionPath.substring(0, subscriptionPath.length - 1) + '*';
 
-      subscriptionTree.search(subscriptionPath).forEach(function(recipient){
-        expect(subscriptionResults[recipient.key].paths[subscriptionPath]).to.be(true);
-      });
+      subscriptionTree.search(subscriptionPath);
 
       if (searched == SEARCHES) return true;
 
