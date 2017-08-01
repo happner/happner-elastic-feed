@@ -8,8 +8,6 @@ describe('func', function () {
 
   var globals = require('./lib/globals');
 
-  var testId = require('shortid').generate();
-
   var request = require('request');
 
   var fs = require('fs');
@@ -57,7 +55,17 @@ describe('func', function () {
       });
   }
 
-  context('feeds', function(){
+  context('service', function(){
+
+    it('starts up an elastic feed service', function(done){
+
+      service.start().then(function(){
+
+      }).catch(done);
+    });
+  });
+
+  xcontext('feeds', function(){
 
     it('creates a feed based on a users permissions and a source and destination data client - then adds data, checks our portal component serves up the html', function(done){
 
@@ -82,22 +90,24 @@ describe('func', function () {
           }, happn)
 
           .then(function(config){
+
             feedConfig = config;
-            return feedComponent.__getFeedSourcePaths(feedConfig, happn);
+
+            //we first get the destination feed info, this is in a pub/sub format via the pare-tree
+
+            return feedComponent.__attachToDestFeeds(feedConfig, happn);
           })
 
-          .then(function(paths){
-            feedConfig.sourcePaths = paths;
+          .then(function(feeds){
 
-
+            feedComponent.__destFeeds = feeds;
 
             return feedComponent.__getFeedDestinationPaths(feedConfig, happn);
           })
 
           .then(function(paths){
+
             feedConfig.destPaths = paths;
-
-
 
             return feedComponent.__cloneDashboardsAndObjects(feedConfig, happn);
           })

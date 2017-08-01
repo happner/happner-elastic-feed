@@ -14,16 +14,13 @@
   },
   "private": true,
   "dependencies": {
-    "binary-search-tree": "^0.2.6",
-    "lru-cache": "^4.1.1",
-    "underscore.string": "^3.3.4",
     "async": "1.5.2",
-    "bluebird": "2.10.2",
+    "wild-pare": "*",
+    "happner-elastic-dataprovider": "*",
     "elasticsearch": "13.2.0",
-    "happn-3": "^1.13.3",
     "happn-logger": "0.0.1",
-    "happner-2": "2.7.5",
-    "uuid": "3.1.0",
-    "shortid": "2.2.4"
+    "happner-2": "5.0.0",
+    "happn-3":"3.0.0",
+    "uuid": "3.1.0"
   }
 }
