@@ -1,11 +1,12 @@
 var Promise = require('bluebird')
-  , happner = require('happner-2')
-  , Source = require('./lib/source');
-  , Destination = require('./lib/destination');
-  , Feed = require('./lib/feed');
-  , Portal = require('./lib/portal/component');
-  , Queue = require('./lib/queue');
-  , Service = require('./lib/service');
+  , Mesh = require('happner-2')
+  , Source = require('./lib/source')
+  , Destination = require('./lib/destination')
+  , Feed = require('./lib/feed')
+  , Portal = require('./lib/portal/component')
+  , Queue = require('./lib/queue')
+  , Service = require('./lib/service')
+  , Utilities = require('./lib/utilities')
   ;
 
 function ElasticFeedService(options){
@@ -27,9 +28,11 @@ ElasticFeedService.prototype.__parseSourceConfig = function(config){
   if (!config.input.elastic_url) config.input.elastic_url = "http://localhost:9200";
 
   var CREDS_INPUT_PASSWORD = process.env.INPUT_PASSWORD?process.env.INPUT_PASSWORD:'happn';
+
   var CREDS_OUTPUT_PASSWORD = process.env.OUTPUT_PASSWORD?process.env.OUTPUT_PASSWORD:CREDS_INPUT_PASSWORD;
 
   var __happnConfigInput = {
+    port:config.input.port,
     secure:true,
     services: {
       security:{
@@ -37,17 +40,19 @@ ElasticFeedService.prototype.__parseSourceConfig = function(config){
       },
       data: {
         config: {
-          port:config.input.port,
           datastores: [
             {
               name: 'elastic-feed-in',
-              provider: require('happner-elastic-dataprovider'),
-              isDefault: true,
+              provider: 'happner-elastic-dataprovider',
               settings: {
                 host: config.input.url,
-                indexes: config.happn.input.indexes,
-                dataroutes: config.happn.input.dataroutes
+                indexes: config.input.indexes,
+                dataroutes: config.input.dataroutes
               }
+            },
+            {
+              name: 'local-store',
+              isDefault: true
             }
           ]
         }
@@ -55,7 +60,7 @@ ElasticFeedService.prototype.__parseSourceConfig = function(config){
     }
   };
 
-  return {
+  var config = {
     name: 'happner-elastic-feed-in',
     happn: __happnConfigInput,
     modules: {
@@ -70,6 +75,9 @@ ElasticFeedService.prototype.__parseSourceConfig = function(config){
       },
       "feed": {
         instance: new Feed(config.input.feed)
+      },
+      "utilities": {
+        instance: new Utilities(config.input.utilities)
       }
     },
     components:{
@@ -84,27 +92,23 @@ ElasticFeedService.prototype.__parseSourceConfig = function(config){
       },
       "feed":{
         startMethod: "initialize"
-      }
-    },
-    endpoints:{
-      destination: {
-        config: {
-          port: config.output.port,
-          username: '_ADMIN',
-          password: CREDS_OUTPUT_PASSWORD
-        }
-      }
+      },
+      "utilities": {}
     }
   };
+
+  return config;
 };
 
 ElasticFeedService.prototype.__parseDestinationConfig = function(config){
 
-  var _this = this;
-
   if (!config.output) config.output = {};
 
   if (!config.output.port) config.output.port = 55001;
+
+  if (!config.input) config.input = {};
+
+  if (!config.input.port) config.input.port = 55000;
 
   if (!config.output.elastic_url) config.output.elastic_url = "http://localhost:9200";
 
@@ -115,20 +119,21 @@ ElasticFeedService.prototype.__parseDestinationConfig = function(config){
     },
     {
       dynamic: true,//dynamic routes generate a new index/type according to the items in the path
-      pattern: "/_system/{{type}}",
-      index: "_system"
+      pattern: "/system/{{type}}",
+      index: "happner-system"
     }
   ];
 
   if (!config.output.indexes) config.output.indexes = [
-    {index: "_system"},
-    {index: "_feed"}
+    {index: "happner-system"},
+    {index: "happner-feed"}
   ];
 
   var CREDS_INPUT_PASSWORD = process.env.INPUT_PASSWORD?process.env.INPUT_PASSWORD:'happn';
   var CREDS_OUTPUT_PASSWORD = process.env.OUTPUT_PASSWORD?process.env.OUTPUT_PASSWORD:CREDS_INPUT_PASSWORD;
 
   var __happnConfigOutput = {
+    port:config.output.port,
     secure:true,
     services: {
       security:{
@@ -136,17 +141,19 @@ ElasticFeedService.prototype.__parseDestinationConfig = function(config){
       },
       data: {
         config: {
-          port:config.output.port,
           datastores: [
             {
               name: 'elastic-feed-out',
-              provider: require('happner-elastic-dataprovider'),
-              isDefault: true,
+              provider: 'happner-elastic-dataprovider',
               settings: {
                 host: config.output.url,
                 indexes: config.output.indexes,
                 dataroutes: config.output.dataroutes
               }
+            },
+            {
+              name: 'local-store',
+              isDefault: true
             }
           ]
         }
@@ -154,7 +161,7 @@ ElasticFeedService.prototype.__parseDestinationConfig = function(config){
     }
   };
 
-  return {
+  var config = {
     name: 'happner-elastic-feed-out',
     happn: __happnConfigOutput,
     modules: {
@@ -172,6 +179,9 @@ ElasticFeedService.prototype.__parseDestinationConfig = function(config){
       },
       "destination": {
         instance: new Destination(config.output.destination)
+      },
+      "utilities": {
+        instance: new Utilities(config.output.utilities)
       }
     },
     components:{
@@ -195,41 +205,21 @@ ElasticFeedService.prototype.__parseDestinationConfig = function(config){
       },
       "destination":{
         startMethod: "initialize"
+      },
+      "utilities": {}
+    },
+    endpoints:{
+      "happner-elastic-feed-in": {
+        config: {
+          port: config.input.port,
+          username: '_ADMIN',
+          password: CREDS_INPUT_PASSWORD
+        }
       }
     }
   };
-};
 
-ElasticFeedService.prototype.startSourceMesh = function(config){
-
-  var _this = this;
-
-  return new Promise(function(resolve, reject){
-
-    try{
-
-      var sourceConfig = _this.__parseSourceConfig(config);
-
-      Mesh.create(_this.__happnerConfigOutput, function (err, instance) {
-
-        if (err) return reject(err);
-
-        _this.destinationMesh = instance;
-
-        Mesh.create(_this.__happnerConfigInput, function (err, instance) {
-
-          if (err) return reject(err);
-
-          _this.sourceMesh = instance;
-
-          callback();
-        });
-      });
-
-    }catch(e){
-      return reject(e);
-    }
-  });
+  return config;
 };
 
 ElasticFeedService.prototype.startDestinationMesh = function(config){
@@ -265,20 +255,11 @@ ElasticFeedService.prototype.startSourceMesh = function(config){
 
       var sourceConfig = _this.__parseSourceConfig(config);
 
-      Mesh.create(destinationConfig, function (err, instance) {
+      Mesh.create(sourceConfig, function (err, instance) {
 
         if (err) return reject(err);
 
-        _this.destinationMesh = instance;
-
-        Mesh.create(_this.__happnerConfigInput, function (err, instance) {
-
-          if (err) return reject(err);
-
-          _this.sourceMesh = instance;
-
-          callback();
-        });
+        resolve(instance);
       });
 
     }catch(e){

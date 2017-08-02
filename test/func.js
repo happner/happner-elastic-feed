@@ -4,68 +4,87 @@ describe('func', function () {
 
   var expect = require('expect.js');
 
-  var service = require('..');
+  var Service = require('..');
 
-  var globals = require('./lib/globals');
+  var service = new Service();
+
+  var globals = require('../lib/globals');
 
   var request = require('request');
 
   var fs = require('fs');
 
-  var sourceConfig = {
-
-  };
-
-  var destConfig = {
-
-  };
-
-  beforeEach ('create 2 happn instances, source and destination', function (done) {
-
-    done();
-  });
-
-  afterEach ('deleted all test data, and stops our happn instances', function (done) {
-
-    done();
-  });
-
-  function mockHappn(){
-
-    return {
-
-      exchange:{}
-    }
-  }
-
-  function getBody(url, done) {
-    request({
-        gzip: true,
-        uri: url,
-        method: 'GET'
-      },
-      function (e, r, b) {
-
-        if (!e) {
-          done(null, b);
-        }
-        else
-          done(e);
-
-      });
-  }
-
   context('service', function(){
 
-    it('starts up an elastic feed service', function(done){
+    it('starts up and stops an elastic a source mesh', function(done){
 
-      service.start().then(function(){
+      var sourceConfig = {};
+
+      service.startSourceMesh(sourceConfig)
+
+        .then(function(mesh){
+          mesh.stop().then(function(){
+            done();
+          }).catch(function(e){
+            done(e);
+          });
 
       }).catch(done);
     });
+
+    it('starts up and stops an elastic a source and destination mesh', function(done){
+
+      var sourceConfig = {};
+      var destinationConfig = {};
+
+      service.startSourceMesh(sourceConfig)
+
+        .then(function(sourceMesh){
+
+          service.startDestinationMesh(destinationConfig)
+
+            .then(function(destinationMesh){
+
+              sourceMesh.stop()
+
+                .then(function(){
+
+                  destinationMesh.stop().then(function(){
+                    done();
+                  }).catch(done);
+              }).catch(done);
+
+            }).catch(done);
+
+        }).catch(done);
+    });
   });
 
-  xcontext('feeds', function(){
+  context('queue', function(){
+
+    var sourceConfig = {
+      kue:{
+
+      }
+    };
+
+    service.startSourceMesh(sourceConfig)
+
+      .then(function(mesh){
+
+        
+
+
+        mesh.stop().then(function(){
+          done();
+        }).catch(function(e){
+          done(e);
+        });
+
+      }).catch(done);
+  });
+
+  context('feeds', function(){
 
     it('creates a feed based on a users permissions and a source and destination data client - then adds data, checks our portal component serves up the html', function(done){
 
