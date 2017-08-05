@@ -1,7 +1,6 @@
 var Promise = require('bluebird')
   , Mesh = require('happner-2')
-  , Source = require('./lib/source')
-  , Destination = require('./lib/destination')
+  , Worker = require('./lib/worker')
   , Feed = require('./lib/feed')
   , Portal = require('./lib/portal/component')
   , Queue = require('./lib/queue')
@@ -13,142 +12,51 @@ function ElasticFeedService(options){
 
 }
 
-ElasticFeedService.prototype.__parseSourceConfig = function(config){
+ElasticFeedService.prototype.__parseBaseConfig = function(config){
 
   if (!config) config = {};
 
-  if (!config.input) config.input = {};
+  if (!config.data) config.data = {};
 
-  if (!config.input.port) config.input.port = 55000;
+  if (!config.data.port) config.data.port = 55001;
 
-  if (!config.output) config.output = {};
+  if (!config.data.elastic_url) config.data.elastic_url = "http://localhost:9200";
 
-  if (!config.output.port) config.output.port = 55001;
-
-  if (!config.input.elastic_url) config.input.elastic_url = "http://localhost:9200";
-
-  var CREDS_INPUT_PASSWORD = process.env.INPUT_PASSWORD?process.env.INPUT_PASSWORD:'happn';
-
-  var CREDS_OUTPUT_PASSWORD = process.env.OUTPUT_PASSWORD?process.env.OUTPUT_PASSWORD:CREDS_INPUT_PASSWORD;
-
-  var __happnConfigInput = {
-    port:config.input.port,
-    secure:true,
-    services: {
-      security:{
-        adminPassword:CREDS_INPUT_PASSWORD
-      },
-      data: {
-        config: {
-          datastores: [
-            {
-              name: 'elastic-feed-in',
-              provider: 'happner-elastic-dataprovider',
-              settings: {
-                host: config.input.url,
-                indexes: config.input.indexes,
-                dataroutes: config.input.dataroutes
-              }
-            },
-            {
-              name: 'local-store',
-              isDefault: true
-            }
-          ]
-        }
-      }
-    }
-  };
-
-  var config = {
-    name: 'happner-elastic-feed-in',
-    happn: __happnConfigInput,
-    modules: {
-      "service": {
-        instance: new Service(config.input.service)
-      },
-      "source": {
-        instance: new Source(config.input.source)
-      },
-      "queue": {
-        instance: new Queue(config.input.queue)
-      },
-      "feed": {
-        instance: new Feed(config.input.feed)
-      },
-      "utilities": {
-        instance: new Utilities(config.input.utilities)
-      }
-    },
-    components:{
-      "service":{
-        startMethod: "initialize"
-      },
-      "source": {
-        startMethod: "initialize"
-      },
-      "queue":{
-        startMethod: "initialize"
-      },
-      "feed":{
-        startMethod: "initialize"
-      },
-      "utilities": {}
-    }
-  };
-
-  return config;
-};
-
-ElasticFeedService.prototype.__parseDestinationConfig = function(config){
-
-  if (!config.output) config.output = {};
-
-  if (!config.output.port) config.output.port = 55001;
-
-  if (!config.input) config.input = {};
-
-  if (!config.input.port) config.input.port = 55000;
-
-  if (!config.output.elastic_url) config.output.elastic_url = "http://localhost:9200";
-
-  if (!config.output.dataroutes) config.output.dataroutes = [
+  if (!config.data.dataroutes) config.data.dataroutes = [
     {
       dynamic: true,//dynamic routes generate a new index/type according to the items in the path
       pattern: "/feed/{{index}}/{{type}}/{{metric}}/{{timestamp:date}}/{{value:integer}}"
     },
     {
-      dynamic: true,//dynamic routes generate a new index/type according to the items in the path
-      pattern: "/system/{{type}}",
-      index: "happner-system"
+      pattern: "/happner-feed-system/{{type}}",
+      index: "happner-feed-system"
     }
   ];
 
-  if (!config.output.indexes) config.output.indexes = [
+  if (!config.data.indexes) config.data.indexes = [
     {index: "happner-system"},
     {index: "happner-feed"}
   ];
 
-  var CREDS_INPUT_PASSWORD = process.env.INPUT_PASSWORD?process.env.INPUT_PASSWORD:'happn';
-  var CREDS_OUTPUT_PASSWORD = process.env.OUTPUT_PASSWORD?process.env.OUTPUT_PASSWORD:CREDS_INPUT_PASSWORD;
+  var CREDS_DATA_PASSWORD = process.env.CREDS_DATA_PASSWORD?process.env.OUTPUT_PASSWORD:CREDS_DATA_PASSWORD;
 
-  var __happnConfigOutput = {
-    port:config.output.port,
+  var __happnConfig = {
+    port:config.data.port,
     secure:true,
     services: {
       security:{
-        adminPassword:CREDS_OUTPUT_PASSWORD
+        adminPassword:CREDS_DATA_PASSWORD
       },
       data: {
         config: {
           datastores: [
             {
-              name: 'elastic-feed-out',
+              name: 'happner-elastic-feed',
               provider: 'happner-elastic-dataprovider',
               settings: {
-                host: config.output.url,
-                indexes: config.output.indexes,
-                dataroutes: config.output.dataroutes
+                host: config.data.url,
+                indexes: config.data.indexes,
+                dataroutes: config.data.dataroutes
               }
             },
             {
@@ -162,67 +70,122 @@ ElasticFeedService.prototype.__parseDestinationConfig = function(config){
   };
 
   var config = {
-    name: 'happner-elastic-feed-out',
-    happn: __happnConfigOutput,
+    name: 'happner-elastic-feed',
+    happn: __happnConfig,
     modules: {
       "service": {
-        instance: new Service(config.output.service)
-      },
-      "portal": {
-        instance: new Portal(config.portal)
-      },
-      "queue": {
-        instance: new Queue(config.output.queue)
+        instance: new Service(config.service)
       },
       "feed": {
-        instance: new Feed(config.output.feed)
-      },
-      "destination": {
-        instance: new Destination(config.output.destination)
+        instance: new Feed(config.feed)
       },
       "utilities": {
-        instance: new Utilities(config.output.utilities)
+        instance: new Utilities(config.utilities)
+      },
+      "queue": {
+        instance: new Queue(config.queue)
       }
     },
     components:{
       "service":{
         startMethod: "initialize"
       },
-      "portal": {
-        startMethod: "initialize",
-        web: {
-          routes: {
-            "feed": "feed",
-            "admin": "admin"
-          }
-        }
-      },
-      "queue":{
-        startMethod: "initialize"
-      },
       "feed":{
         startMethod: "initialize"
       },
-      "destination":{
+      "utilities": {},
+      "queue":{
         startMethod: "initialize"
-      },
-      "utilities": {}
-    },
-    endpoints:{
-      "happner-elastic-feed-in": {
-        config: {
-          port: config.input.port,
-          username: '_ADMIN',
-          password: CREDS_INPUT_PASSWORD
-        }
       }
+    // },
+    // endpoints:{
+    //   "happner-elastic-feed-in": {
+    //     config: {
+    //       port: config.input.port,
+    //       username: '_ADMIN',
+    //       password: CREDS_INPUT_PASSWORD
+    //     }
+    //   }
     }
   };
 
   return config;
 };
 
-ElasticFeedService.prototype.startDestinationMesh = function(config){
+ElasticFeedService.prototype.__parseWorkerConfig = function(config){
+
+  if (!config) config = this.__parseBaseConfig();
+
+  config.modules.worker = {instance: new Worker(config.worker)};
+
+  config.components.worker = {
+    startMethod: "initialize"
+  };
+
+  return config;
+};
+
+ElasticFeedService.prototype.__parseQueueConfig = function(config){
+
+  if (!config) config = this.__parseBaseConfig();
+
+  config.modules.queue = {instance: new Queue(config.worker)};
+
+  config.components.queue = {
+    startMethod: "initialize"
+  };
+
+  return config;
+};
+
+ElasticFeedService.prototype.__parsePortalConfig = function(config){
+
+  if (!config) config = this.__parseBaseConfig();
+
+  config.modules.portal = {instance: new Portal(config.worker)};
+
+  config.components.portal = {
+    startMethod: "initialize"
+  };
+
+  return config;
+};
+
+
+ElasticFeedService.prototype.__parseWorkerConfig = function(config){
+
+  if (!config) config = this.__parseBaseConfig();
+
+  config.modules.worker = {instance: new Worker(config.worker)};
+
+  config.components.worker = {
+    startMethod: "initialize"
+  };
+
+  return config;
+};
+
+
+ElasticFeedService.prototype.__parseSubscriberConfig = function(config){
+
+  if (!config) config = this.__parseBaseConfig();
+
+  var CREDS_SUBSCRIBER_PASSWORD = process.env.CREDS_SUBSCRIBER_PASSWORD?process.env.CREDS_SUBSCRIBER_PASSWORD:CREDS_SUBSCRIBER_PASSWORD;
+
+  if (!config.subscriber) {
+    config.subscriber = {port:55000, password:CREDS_SUBSCRIBER_PASSWORD};
+  }
+
+  config.modules.subscriber = {instance: new Subscriber(config.subscriber)};
+
+  config.components.subscriber = {
+    startMethod: "initialize"
+  };
+
+  return config;
+};
+
+ElasticFeedService.prototype.workerMesh = function(config, existing){
 
   var _this = this;
 
@@ -230,9 +193,23 @@ ElasticFeedService.prototype.startDestinationMesh = function(config){
 
     try{
 
-      var destinationConfig = _this.__parseDestinationConfig(config);
+      var baseConfig = _this.__parseBaseConfig(config);
 
-      Mesh.create(destinationConfig, function (err, instance) {
+      var workerConfig = _this.__parseWorkerConfig(baseConfig);
+
+      if (existing){
+
+        return existing._createElement({
+            module: workerConfig.modules.worker,
+            component: workerConfig.components.worker
+          })
+          .then(function () {
+            resolve(existing)
+          })
+          .catch(reject);
+      }
+
+      Mesh.create(workerConfig, function (err, instance) {
 
         if (err) return reject(err);
 
@@ -245,7 +222,7 @@ ElasticFeedService.prototype.startDestinationMesh = function(config){
   });
 };
 
-ElasticFeedService.prototype.startSourceMesh = function(config){
+ElasticFeedService.prototype.subscriberMesh = function(config, existing){
 
   var _this = this;
 
@@ -253,9 +230,120 @@ ElasticFeedService.prototype.startSourceMesh = function(config){
 
     try{
 
-      var sourceConfig = _this.__parseSourceConfig(config);
+      var baseConfig = _this.__parseBaseConfig(config);
 
-      Mesh.create(sourceConfig, function (err, instance) {
+      var subscriberConfig = _this.__parseWorkerConfig(baseConfig);
+
+      if (existing){
+
+        return existing._createElement({
+            module: subscriberConfig.modules.subscriber,
+            component: subscriberConfig.components.subscriber
+          })
+          .then(function () {
+            resolve(existing)
+          })
+          .catch(reject);
+      }
+
+      Mesh.create(subscriberConfig, function (err, instance) {
+
+        if (err) return reject(err);
+
+        resolve(instance);
+      });
+
+    }catch(e){
+      return reject(e);
+    }
+  });
+};
+
+ElasticFeedService.prototype.queueMesh = function(config, existing){
+
+  var _this = this;
+
+  return new Promise(function(resolve, reject){
+
+    try{
+
+      var baseConfig = _this.__parseBaseConfig(config);
+
+      var queueConfig = _this.__parseQueueConfig(baseConfig);
+
+      if (existing){
+
+        return existing._createElement({
+            module: queueConfig.modules.queue,
+            component: queueConfig.components.queue
+          })
+          .then(function () {
+            resolve(existing)
+          })
+          .catch(reject);
+      }
+
+      Mesh.create(queueConfig, function (err, instance) {
+
+        if (err) return reject(err);
+
+        resolve(instance);
+      });
+
+    }catch(e){
+      return reject(e);
+    }
+  });
+};
+
+ElasticFeedService.prototype.portalMesh = function(config, existing){
+
+  var _this = this;
+
+  return new Promise(function(resolve, reject){
+
+    try{
+
+      var baseConfig = _this.__parseBaseConfig(config);
+
+      var portalConfig = _this.__parsePortalConfig(baseConfig);
+
+      if (existing){
+
+        return existing._createElement({
+            module: portalConfig.modules.portal,
+            component: portalConfig.components.portal
+          })
+          .then(function () {
+            resolve(existing)
+          })
+          .catch(reject);
+      }
+
+      Mesh.create(portalConfig, function (err, instance) {
+
+        if (err) return reject(err);
+
+        resolve(instance);
+      });
+
+    }catch(e){
+      return reject(e);
+    }
+  });
+};
+
+ElasticFeedService.prototype.baseMesh = function(config){
+
+  var _this = this;
+
+  return new Promise(function(resolve, reject){
+
+    try{
+
+      var baseConfig = _this.__parseBaseConfig(config);
+
+      Mesh.create(baseConfig, function (err, instance) {
 
         if (err) return reject(err);
 
