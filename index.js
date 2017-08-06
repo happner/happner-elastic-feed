@@ -1,11 +1,13 @@
 var Promise = require('bluebird')
   , Mesh = require('happner-2')
   , Worker = require('./lib/worker')
+  , Subscriber = require('./lib/subscriber')
   , Feed = require('./lib/feed')
   , Portal = require('./lib/portal/component')
   , Queue = require('./lib/queue')
   , Service = require('./lib/service')
   , Utilities = require('./lib/utilities')
+  , async = require('async')
   ;
 
 function ElasticFeedService(options){
@@ -129,7 +131,7 @@ ElasticFeedService.prototype.__parseQueueConfig = function(config){
 
   if (!config) config = this.__parseBaseConfig();
 
-  config.modules.queue = {instance: new Queue(config.worker)};
+  config.modules.queue = {instance: new Queue(config.queue)};
 
   config.components.queue = {
     startMethod: "initialize"
@@ -142,23 +144,9 @@ ElasticFeedService.prototype.__parsePortalConfig = function(config){
 
   if (!config) config = this.__parseBaseConfig();
 
-  config.modules.portal = {instance: new Portal(config.worker)};
+  config.modules.portal = {instance: new Portal(config.portal)};
 
   config.components.portal = {
-    startMethod: "initialize"
-  };
-
-  return config;
-};
-
-
-ElasticFeedService.prototype.__parseWorkerConfig = function(config){
-
-  if (!config) config = this.__parseBaseConfig();
-
-  config.modules.worker = {instance: new Worker(config.worker)};
-
-  config.components.worker = {
     startMethod: "initialize"
   };
 
@@ -185,177 +173,144 @@ ElasticFeedService.prototype.__parseSubscriberConfig = function(config){
   return config;
 };
 
-ElasticFeedService.prototype.workerMesh = function(config, existing){
+ElasticFeedService.prototype.__appendComponent = function(config, callback){
 
   var _this = this;
 
-  return new Promise(function(resolve, reject){
+  async.eachSeries(Object.keys(config.components), function(componentName, componentNameCB){
 
-    try{
+    if (_this.__mesh._mesh.elements[componentName] != null) return componentNameCB();
 
-      var baseConfig = _this.__parseBaseConfig(config);
-
-      var workerConfig = _this.__parseWorkerConfig(baseConfig);
-
-      if (existing){
-
-        return existing._createElement({
-            module: workerConfig.modules.worker,
-            component: workerConfig.components.worker
-          })
-          .then(function () {
-            resolve(existing)
-          })
-          .catch(reject);
+    _this.__mesh._createElement({
+      module: {
+        name:componentName,
+        config:{
+          instance:config.modules[componentName].instance
+        }
+      },
+      component: {
+        name:componentName,
+        config: config.components[componentName]
       }
+    })
+    .then(componentNameCB)
+    .catch(componentNameCB);
 
-      Mesh.create(workerConfig, function (err, instance) {
-
-        if (err) return reject(err);
-
-        resolve(instance);
-      });
-
-    }catch(e){
-      return reject(e);
-    }
-  });
+  }, callback);
 };
 
-ElasticFeedService.prototype.subscriberMesh = function(config, existing){
+ElasticFeedService.prototype.__initializeMesh = function(config, callback){
+
+  var _this = this;
+
+  if (_this.__mesh == null) {
+
+    return Mesh.create(config, function (err, instance) {
+
+      if (err) return callback(err);
+
+      _this.__mesh = instance;
+
+      callback();
+    });
+  }
+
+  _this.__appendComponent(config, callback);
+};
+
+ElasticFeedService.prototype.SERVICE_TYPE = {
+  QUEUE:0,
+  PORTAL:1,
+  WORKER:2,
+  SUBSCRIBER:3
+};
+
+ElasticFeedService.prototype.__activateService = function(type, config, callback){
+
+  try{
+
+    var baseConfig = this.__parseBaseConfig(config);
+
+    var typeConfig;
+
+    if (type == this.SERVICE_TYPE.QUEUE) typeConfig = this.__parseQueueConfig(baseConfig);
+
+    if (type == this.SERVICE_TYPE.PORTAL) typeConfig = this.__parsePortalConfig(baseConfig);
+
+    if (type == this.SERVICE_TYPE.WORKER) typeConfig = this.__parseWorkerConfig(baseConfig);
+
+    if (type == this.SERVICE_TYPE.SUBSCRIBER) typeConfig = this.__parseSubscriberConfig(baseConfig);
+
+    return this.__initializeMesh(typeConfig, callback);
+
+  }catch(e){
+    callback(e);
+  }
+};
+
+ElasticFeedService.prototype.queue = function(config){
 
   var _this = this;
 
   return new Promise(function(resolve, reject){
 
-    try{
-
-      var baseConfig = _this.__parseBaseConfig(config);
-
-      var subscriberConfig = _this.__parseWorkerConfig(baseConfig);
-
-      if (existing){
-
-        return existing._createElement({
-            module: subscriberConfig.modules.subscriber,
-            component: subscriberConfig.components.subscriber
-          })
-          .then(function () {
-            resolve(existing)
-          })
-          .catch(reject);
-      }
-
-      Mesh.create(subscriberConfig, function (err, instance) {
-
-        if (err) return reject(err);
-
-        resolve(instance);
+      _this.__activateService(_this.SERVICE_TYPE.QUEUE, config, function(e){
+        if (e) return reject(e);
+        resolve(_this);
       });
-
-    }catch(e){
-      return reject(e);
-    }
   });
 };
 
-ElasticFeedService.prototype.queueMesh = function(config, existing){
+ElasticFeedService.prototype.worker = function(config){
 
   var _this = this;
 
   return new Promise(function(resolve, reject){
 
-    try{
-
-      var baseConfig = _this.__parseBaseConfig(config);
-
-      var queueConfig = _this.__parseQueueConfig(baseConfig);
-
-      if (existing){
-
-        return existing._createElement({
-            module: queueConfig.modules.queue,
-            component: queueConfig.components.queue
-          })
-          .then(function () {
-            resolve(existing)
-          })
-          .catch(reject);
-      }
-
-      Mesh.create(queueConfig, function (err, instance) {
-
-        if (err) return reject(err);
-
-        resolve(instance);
-      });
-
-    }catch(e){
-      return reject(e);
-    }
+    _this.__activateService(_this.SERVICE_TYPE.WORKER, config, function(e){
+      if (e) return reject(e);
+      resolve(_this);
+    });
   });
 };
 
-ElasticFeedService.prototype.portalMesh = function(config, existing){
+ElasticFeedService.prototype.subscriber = function(config){
 
   var _this = this;
 
   return new Promise(function(resolve, reject){
 
-    try{
-
-      var baseConfig = _this.__parseBaseConfig(config);
-
-      var portalConfig = _this.__parsePortalConfig(baseConfig);
-
-      if (existing){
-
-        return existing._createElement({
-            module: portalConfig.modules.portal,
-            component: portalConfig.components.portal
-          })
-          .then(function () {
-            resolve(existing)
-          })
-          .catch(reject);
-      }
-
-      Mesh.create(portalConfig, function (err, instance) {
-
-        if (err) return reject(err);
-
-        resolve(instance);
-      });
-
-    }catch(e){
-      return reject(e);
-    }
+    _this.__activateService(_this.SERVICE_TYPE.SUBSCRIBER, config, function(e){
+      if (e) return reject(e);
+      resolve(_this);
+    });
   });
 };
 
-ElasticFeedService.prototype.baseMesh = function(config){
+ElasticFeedService.prototype.portal = function(config){
 
   var _this = this;
 
   return new Promise(function(resolve, reject){
 
-    try{
-
-      var baseConfig = _this.__parseBaseConfig(config);
-
-      Mesh.create(baseConfig, function (err, instance) {
-
-        if (err) return reject(err);
-
-        resolve(instance);
-      });
-
-    }catch(e){
-      return reject(e);
-    }
+    _this.__activateService(_this.SERVICE_TYPE.PORTAL, config, function(e){
+      if (e) return reject(e);
+      resolve(_this);
+    });
   });
 };
 
+ElasticFeedService.prototype.stop = function(opts, callback){
+
+  if (typeof opts == 'function') {
+    callback = opts;
+    opts = {};
+  }
+
+  if (!opts) opts = {};
+
+  return this.__mesh.stop(opts, callback);
+};
 
 
 module.exports = ElasticFeedService;
