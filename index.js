@@ -1,8 +1,9 @@
 var Promise = require('bluebird')
   , Mesh = require('happner-2')
-  , Worker = require('./lib/worker')
+  , Emitter = require('./lib/emitter')
   , Subscriber = require('./lib/subscriber')
   , Feed = require('./lib/feed')
+  , Worker = require('./lib/worker')
   , Portal = require('./lib/portal/component')
   , Queue = require('./lib/queue')
   , Service = require('./lib/service')
@@ -12,6 +13,7 @@ var Promise = require('bluebird')
 
 function ElasticFeedService(options){
 
+  this.components = {};
 }
 
 ElasticFeedService.prototype.__parseBaseConfig = function(config){
@@ -81,11 +83,11 @@ ElasticFeedService.prototype.__parseBaseConfig = function(config){
       "feed": {
         instance: new Feed(config.feed)
       },
+      "worker": {
+        instance: new Worker(config.worker)
+      },
       "utilities": {
         instance: new Utilities(config.utilities)
-      },
-      "queue": {
-        instance: new Queue(config.queue)
       }
     },
     components:{
@@ -95,10 +97,10 @@ ElasticFeedService.prototype.__parseBaseConfig = function(config){
       "feed":{
         startMethod: "initialize"
       },
-      "utilities": {},
-      "queue":{
+      "worker":{
         startMethod: "initialize"
-      }
+      },
+      "utilities": {}
     // },
     // endpoints:{
     //   "happner-elastic-feed-in": {
@@ -114,15 +116,54 @@ ElasticFeedService.prototype.__parseBaseConfig = function(config){
   return config;
 };
 
+ElasticFeedService.prototype.__parseEmitterConfig = function(config){
+
+  if (!config) config = this.__parseBaseConfig();
+
+  if (config.modules.queue == null && !config.queue) config.queue = {
+    name: "happner-elastic-queue",
+    happn: {
+      host:'localhost',
+      port: 55000,
+      secure:true,
+      user:'_ADMIN',
+      password:'happn'
+    }
+  };
+
+  config.modules.emitter = {instance: new Emitter(config.emitter)};
+
+  config.components.emitter = {
+    startMethod: "initialize"
+  };
+
+  if (config.queue) config.endpoints[config.queue.name] = {config:config.queue.happn};
+
+  return config;
+};
+
 ElasticFeedService.prototype.__parseWorkerConfig = function(config){
 
   if (!config) config = this.__parseBaseConfig();
 
-  config.modules.worker = {instance: new Worker(config.worker)};
+  if (config.modules.queue == null && !config.queue) config.queue = {
+    name: "happner-elastic-queue",
+    happn: {
+      host:'localhost',
+      port: 55000,
+      secure:true,
+      user:'_ADMIN',
+      password:'happn'
+    }
+  };
 
-  config.components.worker = {
+  config.modules.emitter = {instance: new Emitter(config.emitter)};
+
+  config.components.emitter = {
     startMethod: "initialize"
   };
+
+  if (config.queue) config.endpoints[config.queue.name] = {config:config.queue.happn};
 
   return config;
 };
@@ -193,7 +234,10 @@ ElasticFeedService.prototype.__appendComponent = function(config, callback){
         config: config.components[componentName]
       }
     })
-    .then(componentNameCB)
+    .then(function(){
+
+      _this.components[componentName] = config.modules[componentName].instance;
+    })
     .catch(componentNameCB);
 
   }, callback);
@@ -237,7 +281,7 @@ ElasticFeedService.prototype.__activateService = function(type, config, callback
 
     if (type == this.SERVICE_TYPE.PORTAL) typeConfig = this.__parsePortalConfig(baseConfig);
 
-    if (type == this.SERVICE_TYPE.WORKER) typeConfig = this.__parseWorkerConfig(baseConfig);
+    if (type == this.SERVICE_TYPE.WORKER) typeConfig = this.__parseEmitterConfig(baseConfig);
 
     if (type == this.SERVICE_TYPE.SUBSCRIBER) typeConfig = this.__parseSubscriberConfig(baseConfig);
 
@@ -261,7 +305,7 @@ ElasticFeedService.prototype.queue = function(config){
   });
 };
 
-ElasticFeedService.prototype.worker = function(config){
+ElasticFeedService.prototype.emitter = function(config){
 
   var _this = this;
 
