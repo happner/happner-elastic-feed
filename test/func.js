@@ -222,8 +222,57 @@ describe('func', function () {
         .then(function(batch){
 
           expect(batch.data.test).to.be('batch');
+          console.log('popped1:::',popped1);
+
+          return queue.updateJob({type:queue.JOB_TYPE.SUBSCRIBER, id:popped1.id, state:queue.JOB_STATE.COMPLETED});
+        })
+        .then(function(updated){
+
+          expect(updated.state).to.be(queue.JOB_STATE.COMPLETED);
+          expect(queue.metrics().busy[queue.JOB_TYPE.SUBSCRIBER]).to.be(2);
+
+          return queue.updateJob({type:queue.JOB_TYPE.SUBSCRIBER, id:popped2.id, log:'log this', progress:70});
+        })
+        .then(function(updated){
+
+          expect(updated.state).to.be(queue.JOB_STATE.BUSY);
+          expect(updated.progress).to.be(70);
+          expect(queue.metrics().busy[queue.JOB_TYPE.SUBSCRIBER]).to.be(2);
+
+          return queue.updateJob({type:queue.JOB_TYPE.SUBSCRIBER, id:popped3.id, state:queue.JOB_STATE.COMPLETED});
+        })
+        .then(function(updated){
+
+          expect(updated.state).to.be(queue.JOB_STATE.COMPLETED);
+          expect(updated.progress).to.be(100);
+          expect(queue.metrics().busy[queue.JOB_TYPE.SUBSCRIBER]).to.be(1);
+
+          return queue.updateJob({type:queue.JOB_TYPE.SUBSCRIBER, id:popped2.id, state:queue.JOB_STATE.COMPLETED});
+        })
+        .then(function(updated){
+
+          expect(updated.state).to.be(queue.JOB_STATE.COMPLETED);
+          expect(updated.progress).to.be(100);
+          expect(queue.metrics().busy[queue.JOB_TYPE.SUBSCRIBER]).to.be(0);
+
+          return queue.pop({workerId:attached3})
+        })
+        .then(function(popped){
+
+          expect(popped).to.be(false);
+          return queue.pop({workerId:attached2})
+        })
+        .then(function(popped){
+
+          expect(popped).to.be(false);
+          return queue.pop({workerId:attached1})
+        })
+        .then(function(popped){
+
+          expect(popped).to.be(false);
           done();
-        });
+        })
+      ;
     });
 
     xit('attaches 2 emitter listeners via the mesh', function(done){
