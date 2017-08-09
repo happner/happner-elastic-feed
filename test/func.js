@@ -191,7 +191,7 @@ describe('func', function () {
 
           expect(popped).to.be(false);
 
-          queue.stop(done);
+          queue.stop().then(done);
         });
 
     });
@@ -285,7 +285,7 @@ describe('func', function () {
           created3 = createdJob;
 
           expect(queue.metrics().pending[queue.JOB_TYPE.SUBSCRIBER]).to.be(4);
-          
+
           return queue.pop({workerId: attached1})
         })
         .then(function (poppedJob) {
@@ -342,8 +342,12 @@ describe('func', function () {
 
         })
         .then(function (popped) {
-          //expect(popped.data.test).to.be(8);
-          queue.stop(done);
+
+          console.log('final-pop:::', popped);
+
+          expect(popped.data.test).to.not.be(null);
+
+          queue.stop().then(done);
         });
     });
   });
