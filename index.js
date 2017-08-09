@@ -83,9 +83,6 @@ ElasticFeedService.prototype.__parseBaseConfig = function(config){
       "feed": {
         instance: new Feed(config.feed)
       },
-      "worker": {
-        instance: new Worker(config.worker)
-      },
       "utilities": {
         instance: new Utilities(config.utilities)
       }
@@ -97,19 +94,7 @@ ElasticFeedService.prototype.__parseBaseConfig = function(config){
       "feed":{
         startMethod: "initialize"
       },
-      "worker":{
-        startMethod: "initialize"
-      },
       "utilities": {}
-    // },
-    // endpoints:{
-    //   "happner-elastic-feed-in": {
-    //     config: {
-    //       port: config.input.port,
-    //       username: '_ADMIN',
-    //       password: CREDS_INPUT_PASSWORD
-    //     }
-    //   }
     }
   };
 
@@ -120,24 +105,11 @@ ElasticFeedService.prototype.__parseEmitterConfig = function(config){
 
   if (!config) config = this.__parseBaseConfig();
 
-  if (config.modules.queue == null && !config.queue) config.queue = {
-    name: "happner-elastic-queue",
-    happn: {
-      host:'localhost',
-      port: 55000,
-      secure:true,
-      user:'_ADMIN',
-      password:'happn'
-    }
-  };
-
   config.modules.emitter = {instance: new Emitter(config.emitter)};
 
   config.components.emitter = {
     startMethod: "initialize"
   };
-
-  if (config.queue) config.endpoints[config.queue.name] = {config:config.queue.happn};
 
   return config;
 };
@@ -157,11 +129,13 @@ ElasticFeedService.prototype.__parseWorkerConfig = function(config){
     }
   };
 
-  config.modules.emitter = {instance: new Emitter(config.emitter)};
+  config.modules.worker = {instance: new Worker(config.worker)};
 
-  config.components.emitter = {
+  config.components.worker = {
     startMethod: "initialize"
   };
+
+  if (!config.endpoints) config.endpoints = [];
 
   if (config.queue) config.endpoints[config.queue.name] = {config:config.queue.happn};
 
@@ -237,6 +211,7 @@ ElasticFeedService.prototype.__appendComponent = function(config, callback){
     .then(function(){
 
       _this.components[componentName] = config.modules[componentName].instance;
+      return componentNameCB();
     })
     .catch(componentNameCB);
 
@@ -266,7 +241,8 @@ ElasticFeedService.prototype.SERVICE_TYPE = {
   QUEUE:0,
   PORTAL:1,
   WORKER:2,
-  SUBSCRIBER:3
+  SUBSCRIBER:3,
+  EMITTER:4
 };
 
 ElasticFeedService.prototype.__activateService = function(type, config, callback){
@@ -281,13 +257,16 @@ ElasticFeedService.prototype.__activateService = function(type, config, callback
 
     if (type == this.SERVICE_TYPE.PORTAL) typeConfig = this.__parsePortalConfig(baseConfig);
 
-    if (type == this.SERVICE_TYPE.WORKER) typeConfig = this.__parseEmitterConfig(baseConfig);
+    if (type == this.SERVICE_TYPE.WORKER) typeConfig = this.__parseWorkerConfig(baseConfig);
 
     if (type == this.SERVICE_TYPE.SUBSCRIBER) typeConfig = this.__parseSubscriberConfig(baseConfig);
+
+    if (type == this.SERVICE_TYPE.EMITTER) typeConfig = this.__parseEmitterConfig(baseConfig);
 
     return this.__initializeMesh(typeConfig, callback);
 
   }catch(e){
+
     callback(e);
   }
 };
@@ -311,7 +290,7 @@ ElasticFeedService.prototype.emitter = function(config){
 
   return new Promise(function(resolve, reject){
 
-    _this.__activateService(_this.SERVICE_TYPE.WORKER, config, function(e){
+    _this.__activateService(_this.SERVICE_TYPE.EMITTER, config, function(e){
       if (e) return reject(e);
       resolve(_this);
     });
@@ -338,6 +317,19 @@ ElasticFeedService.prototype.portal = function(config){
   return new Promise(function(resolve, reject){
 
     _this.__activateService(_this.SERVICE_TYPE.PORTAL, config, function(e){
+      if (e) return reject(e);
+      resolve(_this);
+    });
+  });
+};
+
+ElasticFeedService.prototype.worker = function(config){
+
+  var _this = this;
+
+  return new Promise(function(resolve, reject){
+
+    _this.__activateService(_this.SERVICE_TYPE.WORKER, config, function(e){
       if (e) return reject(e);
       resolve(_this);
     });
