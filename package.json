@@ -2,7 +2,7 @@
   "name": "happner-elastic-feed",
   "version": "1.0.0",
   "scripts": {
-    "test": "mocha test"
+    "test": "mocha silence.js test"
   },
   "devDependencies": {
     "assert": "^1.4.0",

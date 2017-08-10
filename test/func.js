@@ -6,21 +6,25 @@ describe('func', function () {
 
   var Service = require('..');
 
-  var globals = require('../lib/globals');
-
   var request = require('request');
+
+  var Queue = require('../lib/queue');
 
   var fs = require('fs');
 
-  context.only('queue', function(){
+  context('queue', function () {
 
-    it('tests the queue functions', function(done) {
+    it('tests the queue functions', function (done) {
 
       this.timeout(10000);
 
-      var Queue = require('../lib/queue');
-
-      var queue = new Queue();
+      var queue = new Queue({
+        kue: {prefix: 'test-1'},
+        jobTypes: {
+          "subscriber": {concurrency: 10},
+          "emitter": {concurrency: 10}
+        }
+      });
 
       queue.___id = 'id-1';
 
@@ -46,52 +50,52 @@ describe('func', function () {
 
       var createdBatchId = null;
 
-      queue.initialize({kue:{prefix:'test-1'}})
+      queue.initialize()
         .then(function () {
-          return queue.attach({test: 11, type: queue.JOB_TYPE.EMITTER})
+          return queue.attach({test: 11, jobType: "emitter"})
         })
         .then(function (workerId) {
 
           attached1 = workerId;
 
-          expect(workerId.split('_')[0]).to.be('1');
-          expect(queue.metrics().attached[queue.JOB_TYPE.EMITTER]).to.be(1);
+          expect(workerId.split('_')[0]).to.be('emitter');
+          expect(queue.metrics().attached["emitter"]).to.be(1);
 
-          return queue.detach({id:workerId});
+          return queue.detach({id: workerId});
         })
         .then(function (workerId) {
 
           expect(attached1).to.eql(workerId);
 
-          return queue.attach({test: 12, type: queue.JOB_TYPE.SUBSCRIBER});
+          return queue.attach({test: 12, jobType: "subscriber"});
         })
         .then(function (workerId) {
 
           attached2 = workerId;
-          return queue.attach({test: 13, type: queue.JOB_TYPE.SUBSCRIBER});
+          return queue.attach({test: 13, jobType: "subscriber"});
         })
         .then(function (workerId) {
 
           attached3 = workerId;
-          return queue.attach({test: 14, type: queue.JOB_TYPE.SUBSCRIBER});
+          return queue.attach({test: 14, jobType: "subscriber"});
         })
         .then(function (workerId) {
           attached4 = workerId;
-          return queue.createBatch({data: {test: 'batch'}, type: queue.JOB_TYPE.SUBSCRIBER, count: 3});
+          return queue.createBatch({data: {test: 'batch'}, jobType: "subscriber", count: 3});
         })
         .then(function (batchId) {
           createdBatchId = batchId;
-          return queue.createJob({data: {test: 15}, type: queue.JOB_TYPE.SUBSCRIBER, batchId: createdBatchId});
+          return queue.createJob({data: {test: 15}, jobType: "subscriber", batchId: createdBatchId});
         })
         .then(function (createdJob) {
 
           created1 = createdJob;
-          return queue.createJob({data: {test: 16}, type: queue.JOB_TYPE.SUBSCRIBER, batchId: createdBatchId});
+          return queue.createJob({data: {test: 16}, jobType: "subscriber", batchId: createdBatchId});
         })
         .then(function (createdJob) {
 
           created2 = createdJob;
-          return queue.createJob({data: {test: 17}, type: queue.JOB_TYPE.SUBSCRIBER, batchId: createdBatchId});
+          return queue.createJob({data: {test: 17}, jobType: "subscriber", batchId: createdBatchId});
         })
         .then(function (createdJob) {
 
@@ -106,7 +110,7 @@ describe('func', function () {
 
           created3 = createdJob;
 
-          expect(queue.metrics().pending[queue.JOB_TYPE.SUBSCRIBER]).to.be(3);
+          expect(queue.metrics().pending["subscriber"]).to.be(3);
 
           return queue.pop({workerId: attached2})
         })
@@ -116,7 +120,7 @@ describe('func', function () {
 
           expect(popped1.data.test).to.be(15);
 
-          expect(queue.metrics().pending[queue.JOB_TYPE.SUBSCRIBER]).to.be(2);
+          expect(queue.metrics().pending["subscriber"]).to.be(2);
 
           return queue.pop({workerId: attached3})
         })
@@ -125,7 +129,7 @@ describe('func', function () {
           popped2 = poppedJob;
           expect(popped2.data.test).to.be(16);
 
-          expect(queue.metrics().pending[queue.JOB_TYPE.SUBSCRIBER]).to.be(1);
+          expect(queue.metrics().pending["subscriber"]).to.be(1);
 
           return queue.pop({workerId: attached4})
         })
@@ -135,7 +139,7 @@ describe('func', function () {
 
           expect(popped3.data.test).to.be(17);
 
-          expect(queue.metrics().busy[queue.JOB_TYPE.SUBSCRIBER]).to.be(3);
+          expect(queue.metrics().busy["subscriber"]).to.be(3);
 
           return queue.getBatch(popped3.batchId);
         })
@@ -143,37 +147,37 @@ describe('func', function () {
 
           expect(batch.data.test).to.be('batch');
 
-          return queue.updateJob({type: queue.JOB_TYPE.SUBSCRIBER, id: popped1.id, state: queue.JOB_STATE.COMPLETED});
+          return queue.updateJob({jobType: "subscriber", id: popped1.id, state: queue.JOB_STATE.COMPLETED});
         })
         .then(function (updated) {
 
           expect(updated.state).to.be(queue.JOB_STATE.COMPLETED);
 
-          expect(queue.metrics().busy[queue.JOB_TYPE.SUBSCRIBER]).to.be(2);
+          expect(queue.metrics().busy["subscriber"]).to.be(2);
 
-          return queue.updateJob({type: queue.JOB_TYPE.SUBSCRIBER, id: popped2.id, log: 'log this', progress: 70});
+          return queue.updateJob({jobType: "subscriber", id: popped2.id, log: 'log this', progress: 70});
         })
         .then(function (updated) {
 
           expect(updated.state).to.be(queue.JOB_STATE.BUSY);
           expect(updated.progress).to.be(70);
-          expect(queue.metrics().busy[queue.JOB_TYPE.SUBSCRIBER]).to.be(2);
+          expect(queue.metrics().busy["subscriber"]).to.be(2);
 
-          return queue.updateJob({type: queue.JOB_TYPE.SUBSCRIBER, id: popped3.id, state: queue.JOB_STATE.COMPLETED});
+          return queue.updateJob({jobType: "subscriber", id: popped3.id, state: queue.JOB_STATE.COMPLETED});
         })
         .then(function (updated) {
 
           expect(updated.state).to.be(queue.JOB_STATE.COMPLETED);
           expect(updated.progress).to.be(100);
-          expect(queue.metrics().busy[queue.JOB_TYPE.SUBSCRIBER]).to.be(1);
+          expect(queue.metrics().busy["subscriber"]).to.be(1);
 
-          return queue.updateJob({type: queue.JOB_TYPE.SUBSCRIBER, id: popped2.id, state: queue.JOB_STATE.COMPLETED});
+          return queue.updateJob({jobType: "subscriber", id: popped2.id, state: queue.JOB_STATE.COMPLETED});
         })
         .then(function (updated) {
 
           expect(updated.state).to.be(queue.JOB_STATE.COMPLETED);
           expect(updated.progress).to.be(100);
-          expect(queue.metrics().busy[queue.JOB_TYPE.SUBSCRIBER]).to.be(0);
+          expect(queue.metrics().busy["subscriber"]).to.be(0);
 
           return queue.pop({workerId: attached3})
         })
@@ -196,13 +200,17 @@ describe('func', function () {
 
     });
 
-    it('tests dropping a worker and transferring jobs to a different one', function(done){
+    it('tests dropping a worker and transferring jobs to a different one', function (done) {
 
       this.timeout(10000);
 
-      var Queue = require('../lib/queue');
-
-      var queue = new Queue();
+      var queue = new Queue({
+        kue: {prefix: 'test-2'},
+        jobTypes: {
+          "subscriber": {concurrency: 10},
+          "emitter": {concurrency: 10}
+        }
+      });
 
       queue.___id = 'id-2';
 
@@ -230,46 +238,46 @@ describe('func', function () {
 
       var createdBatchId = null;
 
-      queue.initialize({kue:{prefix:'test-2'}})
+      queue.initialize()
         .then(function () {
-          return queue.attach({test: 21, type: queue.JOB_TYPE.SUBSCRIBER})
+          return queue.attach({test: 21, jobType: "subscriber"})
         })
         .then(function (workerId) {
           attached1 = workerId;
-          return queue.attach({test: 22, type: queue.JOB_TYPE.SUBSCRIBER});
+          return queue.attach({test: 22, jobType: "subscriber"});
         })
         .then(function (workerId) {
 
           attached2 = workerId;
-          return queue.attach({test: 23, type: queue.JOB_TYPE.SUBSCRIBER});
+          return queue.attach({test: 23, jobType: "subscriber"});
         })
         .then(function (workerId) {
 
           attached3 = workerId;
-          return queue.attach({test: 24, type: queue.JOB_TYPE.SUBSCRIBER});
+          return queue.attach({test: 24, jobType: "subscriber"});
         })
         .then(function (workerId) {
           attached4 = workerId;
-          return queue.createBatch({data: {test: 'batch'}, type: queue.JOB_TYPE.SUBSCRIBER, count: 4});
+          return queue.createBatch({data: {test: 'batch'}, jobType: "subscriber", count: 4});
         })
         .then(function (batchId) {
           createdBatchId = batchId;
-          return queue.createJob({data: {test: 25}, type: queue.JOB_TYPE.SUBSCRIBER, batchId: createdBatchId});
+          return queue.createJob({data: {test: 25}, jobType: "subscriber", batchId: createdBatchId});
         })
         .then(function (createdJob) {
 
           created1 = createdJob;
-          return queue.createJob({data: {test: 26}, type: queue.JOB_TYPE.SUBSCRIBER, batchId: createdBatchId});
+          return queue.createJob({data: {test: 26}, jobType: "subscriber", batchId: createdBatchId});
         })
         .then(function (createdJob) {
 
           created2 = createdJob;
-          return queue.createJob({data: {test: 27}, type: queue.JOB_TYPE.SUBSCRIBER, batchId: createdBatchId});
+          return queue.createJob({data: {test: 27}, jobType: "subscriber", batchId: createdBatchId});
         })
         .then(function (createdJob) {
 
           created2 = createdJob;
-          return queue.createJob({data: {test: 28}, type: queue.JOB_TYPE.SUBSCRIBER, batchId: createdBatchId});
+          return queue.createJob({data: {test: 28}, jobType: "subscriber", batchId: createdBatchId});
         })
         .then(function (createdJob) {
 
@@ -284,7 +292,7 @@ describe('func', function () {
 
           created3 = createdJob;
 
-          expect(queue.metrics().pending[queue.JOB_TYPE.SUBSCRIBER]).to.be(4);
+          expect(queue.metrics().pending["subscriber"]).to.be(4);
 
           return queue.pop({workerId: attached1})
         })
@@ -294,7 +302,7 @@ describe('func', function () {
 
           expect(popped1.data.test).to.be(25);
 
-          expect(queue.metrics().pending[queue.JOB_TYPE.SUBSCRIBER]).to.be(3);
+          expect(queue.metrics().pending["subscriber"]).to.be(3);
 
           return queue.pop({workerId: attached2})
         })
@@ -304,7 +312,7 @@ describe('func', function () {
 
           expect(popped2.data.test).to.be(26);
 
-          expect(queue.metrics().pending[queue.JOB_TYPE.SUBSCRIBER]).to.be(2);
+          expect(queue.metrics().pending["subscriber"]).to.be(2);
 
           return queue.pop({workerId: attached3})
         })
@@ -314,7 +322,7 @@ describe('func', function () {
 
           expect(popped3.data.test).to.be(27);
 
-          expect(queue.metrics().busy[queue.JOB_TYPE.SUBSCRIBER]).to.be(3);
+          expect(queue.metrics().busy["subscriber"]).to.be(3);
 
           return queue.pop({workerId: attached4})
         })
@@ -324,17 +332,17 @@ describe('func', function () {
 
           expect(popped4.data.test).to.be(28);
 
-          expect(queue.metrics().busy[queue.JOB_TYPE.SUBSCRIBER]).to.be(4);
+          expect(queue.metrics().busy["subscriber"]).to.be(4);
 
-          return queue.detach({id: attached4, reAssign:true});
+          return queue.detach({id: attached4, reAssign: true});
         })
         .then(function (detached) {
 
           expect(detached).to.be(attached4);
 
-          expect(queue.assignedJobs[queue.JOB_TYPE.SUBSCRIBER][0].kue.id).to.be(popped4.id);
+          expect(queue.__assignedJobs["subscriber"][0].kue.id).to.be(popped4.id);
 
-          var reassignedWorker = queue.assignedJobs[queue.JOB_TYPE.SUBSCRIBER][0].workerId;
+          var reassignedWorker = queue.__assignedJobs["subscriber"][0].workerId;
 
           expect(reassignedWorker != attached4).to.be(true);
 
@@ -343,8 +351,6 @@ describe('func', function () {
         })
         .then(function (popped) {
 
-          console.log('final-pop:::', popped);
-
           expect(popped.data.test).to.not.be(null);
 
           queue.stop().then(done);
@@ -352,66 +358,78 @@ describe('func', function () {
     });
   });
 
-  context('service', function(){
+  context('service', function () {
 
-    xit('starts up and stops an elastic a queue mesh', function(done){
+    xit('starts up and stops an elastic a queue mesh', function (done) {
 
       var service = new Service();
-      var queueConfig = {};
+
+      var queueConfig = {
+        jobTypes: {
+          "subscriber": {concurrency: 10},
+          "emitter": {concurrency: 10}
+        }
+      };
 
       service
         .queue(queueConfig)
-        .then(function(){
+        .then(function () {
           service.stop(done);
         })
         .catch(done);
     });
 
 
-    it('starts up and stops an elastic a subscriber mesh', function(done){
+    it('starts up and stops an elastic a subscriber mesh', function (done) {
 
       var service = new Service();
       var sourceConfig = {};
 
       service
         .subscriber(sourceConfig)
-        .then(function(){
+        .then(function () {
           service.stop(done);
         })
         .catch(done);
     });
 
-    it('starts up and stops an elastic a emitter mesh', function(done){
+    it('starts up and stops an elastic a emitter mesh', function (done) {
 
       var service = new Service();
       var emitterConfig = {};
 
       service
         .emitter(emitterConfig)
-        .then(function(){
+        .then(function () {
           service.stop(done);
         })
         .catch(done);
     });
 
-    it('starts up and stops an elastic a portal mesh', function(done){
+    it('starts up and stops an elastic a portal mesh', function (done) {
 
       var service = new Service();
       var portalConfig = {};
 
       service
         .portal(portalConfig)
-        .then(function(){
+        .then(function () {
           service.stop(done);
         })
         .catch(done);
     });
 
-    it('starts up and stops a combined mesh', function(done){
+    it('starts up and stops a combined mesh', function (done) {
 
       var service = new Service();
 
-      var queueConfig = {};
+      var queueConfig = {
+        jobTypes: {
+          "subscriber": {concurrency: 10},
+          "emitter": {concurrency: 10}
+        }
+      };
+
       var subscriberConfig = {};
       var workerConfig = {};
       var emitterConfig = {};
@@ -419,101 +437,129 @@ describe('func', function () {
 
       service
         .portal(portalConfig)
-        .then(function(){
+        .then(function () {
           return service.worker(workerConfig);
         })
-        .then(function(){
+        .then(function () {
           return service.emitter(emitterConfig);
         })
-        .then(function(){
+        .then(function () {
           return service.subscriber(subscriberConfig);
         })
-        .then(function(){
+        .then(function () {
           return service.queue(queueConfig);
         })
-        .then(function(){
+        .then(function () {
           service.stop(done);
         })
         .catch(done);
     });
 
-    xit('attaches 2 emitter listeners via the mesh', function(done){
+    it.only('attaches 2 workers via the mesh, gets an emitted job', function (done) {
 
       var queueService = new Service();
 
-      var emitter1Service = new Service();
+      var worker1Service = new Service();
 
-      var emitter2Service = new Service();
+      var worker2Service = new Service();
 
       var queueConfig = {
-        name:"happner-elastic-queue",
-        happn:{
-          port:55000,
-          adminPassword: 'happn'
+        jobTypes: {
+          "subscriber": {concurrency: 10},
+          "emitter": {concurrency: 10}
         }
       };
 
-      var emitter1Config = {queue:{username:'_ADMIN', password:'happn', port:55000}, port:55001};
+      var worker1Config = {queue: {username: '_ADMIN', password: 'happn', port: 55000, jobTypes:["subscriber"]}, port: 55001};
 
-      var emitter2Config = {queue:{username:'_ADMIN', password:'happn', port:55000}, port:55002};
+      var worker2Config = {queue: {jobTypes:["emitter"]}, port: 55002};
 
-      service
+      queueService
         .queue(queueConfig)
-        .then(function(){
+        .then(function () {
 
-          return emitter1Service.emitter(emitter1Config);
+          return worker1Service.worker(worker1Config);
         })
-        .then(function(){
+        .then(function () {
 
-          return emitter2Service.emitter(emitter2Config)
+          return worker2Service.worker(worker2Config);
         })
-        .then(function(){
+        .then(function () {
 
-          return emitter1Service.components.worker.attachQueue();
-        })
-        .then(function(){
           var metrics = queueService.components.queue.metrics();
 
-          expect(metrics.attached[queueService.components.JOB_TYPE.EMITTER]).to.be(1);
-        })
-        .then(function(){
+          expect(metrics.attached["subscriber"]).to.be(1);
 
-          return emitter1Service.components.worker.detachQueue();
-        })
-        .then(function(){
-          var metrics = queueService.components.queue.metrics();
+          expect(metrics.attached["emitter"]).to.be(1);
 
-          expect(metrics.attached[queueService.components.JOB_TYPE.EMITTER]).to.be(0);
+          return new Promise(function(resolve){
+
+            worker1Service.event.worker.on('subscriber', function(job){
+
+              expect(job.data).to.be('some data');
+
+              return resolve();
+            });
+
+            queueService.exchange.queue.createJob({jobType:'subscriber', data:'some data'});
+          });
+
+        })
+        .then(function () {
+
+          return new Promise(function(resolve){
+
+            worker2Service.event.worker.on('emitter', function(job){
+
+              expect(job.data).to.be('some emitter data');
+
+              return resolve();
+            });
+
+            queueService.exchange.queue.createJob({jobType:'subscriber', data:'some emitter data'});
+          });
+        })
+        .then(function () {
+
+          worker1Service.stop()
+            .then(function(){
+              return worker2Service.stop();
+            })
+            .then(function(){
+              return queueService.stop();
+            })
+            .then(done)
+            .catch(done);
         })
         .catch(done);
     });
 
-    xit('registers an subscriber listener', function(done){
+    xit('registers an subscriber listener', function (done) {
 
     });
 
-    xit('creates a batch with 2 jobs', function(done){
+    xit('creates a batch with 2 jobs', function (done) {
 
     });
 
-    xit('round robins a worker from the queue, ensures we are cycling through available workers', function(done){
+    xit('round robins a worker from the queue, ensures we are cycling through available workers', function (done) {
 
     });
 
-    xit('stops the queue, restarts the queue, ensures persistence', function(done){
+    xit('stops the queue, restarts the queue, ensures persistence', function (done) {
 
     });
   });
 
-  context('feeds', function(){
+  context('feeds', function () {
 
   });
 
-  context('portal', function(){
+  context('portal', function () {
 
   });
 
-  context('service', function(){
+  context('service', function () {
 
   });
 

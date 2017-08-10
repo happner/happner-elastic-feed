@@ -11,26 +11,22 @@ var Promise = require('bluebird')
   , async = require('async')
   ;
 
-function ElasticFeedService(options){
+function ElasticFeedService(options) {
 
   this.components = {};
 }
 
-ElasticFeedService.prototype.__parseBaseConfig = function(config){
+ElasticFeedService.prototype.__parseBaseConfig = function (config) {
 
   if (!config) config = {};
 
   if (!config.data) config.data = {};
 
-  if (!config.data.port) config.data.port = 55001;
+  if (!config.data.port) config.data.port = 55000;
 
   if (!config.data.elastic_url) config.data.elastic_url = "http://localhost:9200";
 
   if (!config.data.dataroutes) config.data.dataroutes = [
-    {
-      dynamic: true,//dynamic routes generate a new index/type according to the items in the path
-      pattern: "/feed/{{index}}/{{type}}/{{metric}}/{{timestamp:date}}/{{value:integer}}"
-    },
     {
       pattern: "/happner-feed-system/{{type}}",
       index: "happner-feed-system"
@@ -38,18 +34,17 @@ ElasticFeedService.prototype.__parseBaseConfig = function(config){
   ];
 
   if (!config.data.indexes) config.data.indexes = [
-    {index: "happner-system"},
-    {index: "happner-feed"}
+    {index: "happner-feed-system"}
   ];
 
-  var CREDS_DATA_PASSWORD = process.env.CREDS_DATA_PASSWORD?process.env.OUTPUT_PASSWORD:CREDS_DATA_PASSWORD;
+  var CREDS_DATA_PASSWORD = process.env.CREDS_DATA_PASSWORD ? process.env.OUTPUT_PASSWORD : CREDS_DATA_PASSWORD;
 
   var __happnConfig = {
-    port:config.data.port,
-    secure:true,
+    port: config.data.port,
+    secure: true,
     services: {
-      security:{
-        adminPassword:CREDS_DATA_PASSWORD
+      security: {
+        adminPassword: CREDS_DATA_PASSWORD
       },
       data: {
         config: {
@@ -87,11 +82,11 @@ ElasticFeedService.prototype.__parseBaseConfig = function(config){
         instance: new Utilities(config.utilities)
       }
     },
-    components:{
-      "service":{
+    components: {
+      "service": {
         startMethod: "initialize"
       },
-      "feed":{
+      "feed": {
         startMethod: "initialize"
       },
       "utilities": {}
@@ -101,9 +96,11 @@ ElasticFeedService.prototype.__parseBaseConfig = function(config){
   return config;
 };
 
-ElasticFeedService.prototype.__parseEmitterConfig = function(config){
+ElasticFeedService.prototype.__parseEmitterConfig = function (config) {
 
-  if (!config) config = this.__parseBaseConfig();
+  config = this.__parseBaseConfig(config);
+
+  if (!config.data) config.data = {};
 
   config.modules.emitter = {instance: new Emitter(config.emitter)};
 
@@ -114,37 +111,64 @@ ElasticFeedService.prototype.__parseEmitterConfig = function(config){
   return config;
 };
 
-ElasticFeedService.prototype.__parseWorkerConfig = function(config){
+ElasticFeedService.prototype.__parseWorkerConfig = function (config) {
 
-  if (!config) config = this.__parseBaseConfig();
+  config = this.__parseBaseConfig(config);
 
-  if (config.modules.queue == null && !config.queue) config.queue = {
-    name: "happner-elastic-queue",
-    happn: {
-      host:'localhost',
-      port: 55000,
-      secure:true,
-      user:'_ADMIN',
-      password:'happn'
-    }
-  };
+  if (!config.worker) config.worker = {};
+
+  if (!config.worker.jobTypes) throw new Error('worker.jobTypes argument missing');
+
+  if (config.queue == null) throw new Error('missing config.queue argument');
+
+  if (config.queue.jobTypes == null) throw new Error('missing config.queue.jobTypes argument');
+
+  if (config.queue.name == null) config.queue.name = 'happner-elastic-queue';
+
+  if (config.queue.username == null) config.queue.username = '_ADMIN';
+
+  if (config.queue.password == null) config.queue.password = 'happn';
+
+  if (config.queue.port == null) config.queue.port = 55000;
+
+  if (config.queue.secure == null) config.queue.secure = true;
+
+  config.worker.queueMeshName = config.queue.name;
 
   config.modules.worker = {instance: new Worker(config.worker)};
 
   config.components.worker = {
-    startMethod: "initialize"
+    startMethod: "initialize",
+    accessLevel: 'mesh'
   };
 
   if (!config.endpoints) config.endpoints = [];
 
-  if (config.queue) config.endpoints[config.queue.name] = {config:config.queue.happn};
+  config.endpoints[config.queue.name] = {config: config.queue};
 
   return config;
 };
 
-ElasticFeedService.prototype.__parseQueueConfig = function(config){
+ElasticFeedService.prototype.__parseQueueConfig = function (config) {
 
-  if (!config) config = this.__parseBaseConfig();
+  config = this.__parseBaseConfig(config);
+
+  if (!config.queue) {
+
+    if (config.jobTypes) config = {kue: config.kue, jobTypes: config.jobTypes};
+
+    else config.jobTypes = {};
+
+    config.queue = {jobTypes: config.jobTypes, kue: config.kue};
+  }
+
+  if (!config.queue.jobTypes["subscriber"]) config.queue.jobTypes["subscriber"] = {concurrency: 10};
+
+  if (!config.queue.jobTypes["emitter"]) config.queue.jobTypes["emitter"] = {concurrency: 10};
+
+  if (!config.queue.kue) config.queue.kue = {};
+
+  if (!config.queue.kue.prefix) config.queue.kue.prefix = config.name;
 
   config.modules.queue = {instance: new Queue(config.queue)};
 
@@ -155,9 +179,9 @@ ElasticFeedService.prototype.__parseQueueConfig = function(config){
   return config;
 };
 
-ElasticFeedService.prototype.__parsePortalConfig = function(config){
+ElasticFeedService.prototype.__parsePortalConfig = function (config) {
 
-  if (!config) config = this.__parseBaseConfig();
+  config = this.__parseBaseConfig(config);
 
   config.modules.portal = {instance: new Portal(config.portal)};
 
@@ -169,14 +193,14 @@ ElasticFeedService.prototype.__parsePortalConfig = function(config){
 };
 
 
-ElasticFeedService.prototype.__parseSubscriberConfig = function(config){
+ElasticFeedService.prototype.__parseSubscriberConfig = function (config) {
 
-  if (!config) config = this.__parseBaseConfig();
+  config = this.__parseBaseConfig(config);
 
-  var CREDS_SUBSCRIBER_PASSWORD = process.env.CREDS_SUBSCRIBER_PASSWORD?process.env.CREDS_SUBSCRIBER_PASSWORD:CREDS_SUBSCRIBER_PASSWORD;
+  var CREDS_SUBSCRIBER_PASSWORD = process.env.CREDS_SUBSCRIBER_PASSWORD ? process.env.CREDS_SUBSCRIBER_PASSWORD : CREDS_SUBSCRIBER_PASSWORD;
 
   if (!config.subscriber) {
-    config.subscriber = {port:55000, password:CREDS_SUBSCRIBER_PASSWORD};
+    config.subscriber = {port: 55000, password: CREDS_SUBSCRIBER_PASSWORD};
   }
 
   config.modules.subscriber = {instance: new Subscriber(config.subscriber)};
@@ -188,37 +212,37 @@ ElasticFeedService.prototype.__parseSubscriberConfig = function(config){
   return config;
 };
 
-ElasticFeedService.prototype.__appendComponent = function(config, callback){
+ElasticFeedService.prototype.__appendComponent = function (config, callback) {
 
   var _this = this;
 
-  async.eachSeries(Object.keys(config.components), function(componentName, componentNameCB){
+  async.eachSeries(Object.keys(config.components), function (componentName, componentNameCB) {
 
     if (_this.__mesh._mesh.elements[componentName] != null) return componentNameCB();
 
     _this.__mesh._createElement({
-      module: {
-        name:componentName,
-        config:{
-          instance:config.modules[componentName].instance
+        module: {
+          name: componentName,
+          config: {
+            instance: config.modules[componentName].instance
+          }
+        },
+        component: {
+          name: componentName,
+          config: config.components[componentName]
         }
-      },
-      component: {
-        name:componentName,
-        config: config.components[componentName]
-      }
-    })
-    .then(function(){
+      })
+      .then(function () {
 
-      _this.components[componentName] = config.modules[componentName].instance;
-      return componentNameCB();
-    })
-    .catch(componentNameCB);
+        _this.components[componentName] = config.modules[componentName].instance;
+        return componentNameCB();
+      })
+      .catch(componentNameCB);
 
   }, callback);
 };
 
-ElasticFeedService.prototype.__initializeMesh = function(config, callback){
+ElasticFeedService.prototype.__initializeMesh = function (config, callback) {
 
   var _this = this;
 
@@ -238,105 +262,103 @@ ElasticFeedService.prototype.__initializeMesh = function(config, callback){
 };
 
 ElasticFeedService.prototype.SERVICE_TYPE = {
-  QUEUE:0,
-  PORTAL:1,
-  WORKER:2,
-  SUBSCRIBER:3,
-  EMITTER:4
+  QUEUE: 0,
+  PORTAL: 1,
+  WORKER: 2,
+  SUBSCRIBER: 3,
+  EMITTER: 4
 };
 
-ElasticFeedService.prototype.__activateService = function(type, config, callback){
+ElasticFeedService.prototype.__activateService = function (type, config, callback) {
 
-  try{
-
-    var baseConfig = this.__parseBaseConfig(config);
+  try {
 
     var typeConfig;
 
-    if (type == this.SERVICE_TYPE.QUEUE) typeConfig = this.__parseQueueConfig(baseConfig);
+    if (type == this.SERVICE_TYPE.QUEUE) typeConfig = this.__parseQueueConfig(config);
 
-    if (type == this.SERVICE_TYPE.PORTAL) typeConfig = this.__parsePortalConfig(baseConfig);
+    if (type == this.SERVICE_TYPE.PORTAL) typeConfig = this.__parsePortalConfig(config);
 
-    if (type == this.SERVICE_TYPE.WORKER) typeConfig = this.__parseWorkerConfig(baseConfig);
+    if (type == this.SERVICE_TYPE.WORKER) typeConfig = this.__parseWorkerConfig(config);
 
-    if (type == this.SERVICE_TYPE.SUBSCRIBER) typeConfig = this.__parseSubscriberConfig(baseConfig);
+    if (type == this.SERVICE_TYPE.SUBSCRIBER) typeConfig = this.__parseSubscriberConfig(config);
 
-    if (type == this.SERVICE_TYPE.EMITTER) typeConfig = this.__parseEmitterConfig(baseConfig);
+    if (type == this.SERVICE_TYPE.EMITTER) typeConfig = this.__parseEmitterConfig(config);
 
     return this.__initializeMesh(typeConfig, callback);
 
-  }catch(e){
+  } catch (e) {
 
     callback(e);
   }
 };
 
-ElasticFeedService.prototype.queue = function(config){
+ElasticFeedService.prototype.queue = function (config) {
 
   var _this = this;
 
-  return new Promise(function(resolve, reject){
+  return new Promise(function (resolve, reject) {
 
-      _this.__activateService(_this.SERVICE_TYPE.QUEUE, config, function(e){
-        if (e) return reject(e);
-        resolve(_this);
-      });
-  });
-};
-
-ElasticFeedService.prototype.emitter = function(config){
-
-  var _this = this;
-
-  return new Promise(function(resolve, reject){
-
-    _this.__activateService(_this.SERVICE_TYPE.EMITTER, config, function(e){
+    _this.__activateService(_this.SERVICE_TYPE.QUEUE, config, function (e) {
       if (e) return reject(e);
       resolve(_this);
     });
   });
 };
 
-ElasticFeedService.prototype.subscriber = function(config){
+ElasticFeedService.prototype.emitter = function (config) {
 
   var _this = this;
 
-  return new Promise(function(resolve, reject){
+  return new Promise(function (resolve, reject) {
 
-    _this.__activateService(_this.SERVICE_TYPE.SUBSCRIBER, config, function(e){
+    _this.__activateService(_this.SERVICE_TYPE.EMITTER, config, function (e) {
       if (e) return reject(e);
       resolve(_this);
     });
   });
 };
 
-ElasticFeedService.prototype.portal = function(config){
+ElasticFeedService.prototype.subscriber = function (config) {
 
   var _this = this;
 
-  return new Promise(function(resolve, reject){
+  return new Promise(function (resolve, reject) {
 
-    _this.__activateService(_this.SERVICE_TYPE.PORTAL, config, function(e){
+    _this.__activateService(_this.SERVICE_TYPE.SUBSCRIBER, config, function (e) {
       if (e) return reject(e);
       resolve(_this);
     });
   });
 };
 
-ElasticFeedService.prototype.worker = function(config){
+ElasticFeedService.prototype.portal = function (config) {
 
   var _this = this;
 
-  return new Promise(function(resolve, reject){
+  return new Promise(function (resolve, reject) {
 
-    _this.__activateService(_this.SERVICE_TYPE.WORKER, config, function(e){
+    _this.__activateService(_this.SERVICE_TYPE.PORTAL, config, function (e) {
       if (e) return reject(e);
       resolve(_this);
     });
   });
 };
 
-ElasticFeedService.prototype.stop = function(opts, callback){
+ElasticFeedService.prototype.worker = function (config) {
+
+  var _this = this;
+
+  return new Promise(function (resolve, reject) {
+
+    _this.__activateService(_this.SERVICE_TYPE.WORKER, config, function (e) {
+      if (e) return reject(e);
+      resolve(_this);
+    });
+  });
+};
+
+ElasticFeedService.prototype.stop = function (opts, callback) {
 
   if (typeof opts == 'function') {
     callback = opts;
