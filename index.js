@@ -68,8 +68,10 @@ ElasticFeedService.prototype.__parseBaseConfig = function (config) {
     }
   };
 
-  var config = {
-    name: 'happner-elastic-feed',
+  if (!config.name)  config.name = 'happner-elastic-feed';
+
+  var hapnnerConfig = {
+    name:config.name,
     happn: __happnConfig,
     modules: {
       "service": {
@@ -93,7 +95,7 @@ ElasticFeedService.prototype.__parseBaseConfig = function (config) {
     }
   };
 
-  return config;
+  return hapnnerConfig;
 };
 
 ElasticFeedService.prototype.__parseEmitterConfig = function (config) {
@@ -113,21 +115,17 @@ ElasticFeedService.prototype.__parseEmitterConfig = function (config) {
 
 ElasticFeedService.prototype.__parseWorkerConfig = function (config) {
 
-  config = this.__parseBaseConfig(config);
+  var baseConfig = this.__parseBaseConfig(config);
 
   if (!config.worker) config.worker = {};
-
-  if (!config.worker.jobTypes) throw new Error('worker.jobTypes argument missing');
 
   if (config.queue == null) throw new Error('missing config.queue argument');
 
   if (config.queue.jobTypes == null) throw new Error('missing config.queue.jobTypes argument');
 
-  if (config.queue.name == null) config.queue.name = 'happner-elastic-queue';
+  if (config.queue.name == null) config.queue.name = 'happner-elastic-feed';
 
-  if (config.queue.username == null) config.queue.username = '_ADMIN';
-
-  if (config.queue.password == null) config.queue.password = 'happn';
+  if (config.queue.host == null) config.queue.host = '127.0.0.1';
 
   if (config.queue.port == null) config.queue.port = 55000;
 
@@ -135,23 +133,37 @@ ElasticFeedService.prototype.__parseWorkerConfig = function (config) {
 
   config.worker.queueMeshName = config.queue.name;
 
-  config.modules.worker = {instance: new Worker(config.worker)};
+  baseConfig.modules.worker = {instance: new Worker(config)};
 
-  config.components.worker = {
+  baseConfig.components.worker = {
     startMethod: "initialize",
-    accessLevel: 'mesh'
+    stopMethod: "stop",
+    accessLevel: "mesh"
   };
 
-  if (!config.endpoints) config.endpoints = [];
+  if (!baseConfig.endpoints) baseConfig.endpoints = {};
 
-  config.endpoints[config.queue.name] = {config: config.queue};
+  baseConfig.endpoints[config.queue.name] = {config: {
+    host:config.queue.host,
+    port:config.queue.port
+  }};
 
-  return config;
+  if (config.queue.secure){
+
+    if (config.queue.username == null) config.queue.username = '_ADMIN';
+
+    if (config.queue.password == null) config.queue.password = 'happn';
+
+    baseConfig.endpoints[config.queue.name].config.username = config.queue.username;
+    baseConfig.endpoints[config.queue.name].config.password = config.queue.password;
+  }
+
+  return baseConfig;
 };
 
 ElasticFeedService.prototype.__parseQueueConfig = function (config) {
 
-  config = this.__parseBaseConfig(config);
+  var baseConfig = this.__parseBaseConfig(config);
 
   if (!config.queue) {
 
@@ -170,46 +182,45 @@ ElasticFeedService.prototype.__parseQueueConfig = function (config) {
 
   if (!config.queue.kue.prefix) config.queue.kue.prefix = config.name;
 
-  config.modules.queue = {instance: new Queue(config.queue)};
+  baseConfig.modules.queue = {instance: new Queue(config.queue)};
 
-  config.components.queue = {
-    startMethod: "initialize"
+  baseConfig.components.queue = {
+    startMethod: "initialize",
+    stopMethod: "stop"
   };
 
-  return config;
+  return baseConfig;
 };
 
 ElasticFeedService.prototype.__parsePortalConfig = function (config) {
 
-  config = this.__parseBaseConfig(config);
+  var baseConfig = this.__parseBaseConfig(config);
 
-  config.modules.portal = {instance: new Portal(config.portal)};
+  baseConfig.modules.portal = {instance: new Portal(config.portal)};
 
-  config.components.portal = {
+  baseConfig.components.portal = {
     startMethod: "initialize"
   };
 
-  return config;
+  return baseConfig;
 };
 
 
 ElasticFeedService.prototype.__parseSubscriberConfig = function (config) {
 
-  config = this.__parseBaseConfig(config);
+  var baseConfig = this.__parseBaseConfig(config);
 
   var CREDS_SUBSCRIBER_PASSWORD = process.env.CREDS_SUBSCRIBER_PASSWORD ? process.env.CREDS_SUBSCRIBER_PASSWORD : CREDS_SUBSCRIBER_PASSWORD;
 
-  if (!config.subscriber) {
-    config.subscriber = {port: 55000, password: CREDS_SUBSCRIBER_PASSWORD};
-  }
+  if (!config.subscriber) config.subscriber = {port: 55000, password: CREDS_SUBSCRIBER_PASSWORD};
 
-  config.modules.subscriber = {instance: new Subscriber(config.subscriber)};
+  baseConfig.modules.subscriber = {instance: new Subscriber(config.subscriber)};
 
-  config.components.subscriber = {
+  baseConfig.components.subscriber = {
     startMethod: "initialize"
   };
 
-  return config;
+  return baseConfig;
 };
 
 ElasticFeedService.prototype.__appendComponent = function (config, callback) {
@@ -298,7 +309,6 @@ ElasticFeedService.prototype.queue = function (config) {
   var _this = this;
 
   return new Promise(function (resolve, reject) {
-
     _this.__activateService(_this.SERVICE_TYPE.QUEUE, config, function (e) {
       if (e) return reject(e);
       resolve(_this);
@@ -351,6 +361,8 @@ ElasticFeedService.prototype.worker = function (config) {
 
   return new Promise(function (resolve, reject) {
 
+    if (!config.name) config.name = 'happner-feed-worker';
+
     _this.__activateService(_this.SERVICE_TYPE.WORKER, config, function (e) {
       if (e) return reject(e);
       resolve(_this);
@@ -360,6 +372,8 @@ ElasticFeedService.prototype.worker = function (config) {
 
 ElasticFeedService.prototype.stop = function (opts, callback) {
 
+  var _this = this;
+
   if (typeof opts == 'function') {
     callback = opts;
     opts = {};
@@ -367,7 +381,15 @@ ElasticFeedService.prototype.stop = function (opts, callback) {
 
   if (!opts) opts = {};
 
-  return this.__mesh.stop(opts, callback);
+  return new Promise(function(resolve, reject){
+
+    return _this.__mesh.stop(opts, function(e){
+
+      if (e) return reject(e);
+
+      resolve();
+    });
+  });
 };
 
 

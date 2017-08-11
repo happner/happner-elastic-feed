@@ -470,66 +470,87 @@ describe('func', function () {
         }
       };
 
-      var worker1Config = {queue: {username: '_ADMIN', password: 'happn', port: 55000, jobTypes:["subscriber"]}, port: 55001};
+      var worker1Config = {
+        name: 'happner-feed-worker1',
+        queue: {username: '_ADMIN', password: 'happn', port: 55000, jobTypes: ["subscriber"]},
+        data: {
+          port: 55001
+        }
+      };
 
-      var worker2Config = {queue: {jobTypes:["emitter"]}, port: 55002};
+      var worker2Config = {
+        name: 'happner-feed-worker2',
+        queue: {jobTypes: ["emitter"]},
+        data: {
+          port: 55002
+        }
+      };
 
       queueService
         .queue(queueConfig)
         .then(function () {
-
           return worker1Service.worker(worker1Config);
         })
         .then(function () {
-
           return worker2Service.worker(worker2Config);
         })
         .then(function () {
 
-          var metrics = queueService.components.queue.metrics();
+          return new Promise(function (resolve) {
 
-          expect(metrics.attached["subscriber"]).to.be(1);
+            queueService.__mesh.exchange.queue.metrics(function (e, metrics) {
 
-          expect(metrics.attached["emitter"]).to.be(1);
+              expect(metrics.attached["subscriber"]).to.be(1);
 
-          return new Promise(function(resolve){
+              expect(metrics.attached["emitter"]).to.be(1);
 
-            worker1Service.event.worker.on('subscriber', function(job){
+              worker1Service.__mesh.event.worker.on('subscriber', function (job) {
 
-              expect(job.data).to.be('some data');
+                  expect(job.data).to.be('some data');
 
-              return resolve();
+                  return resolve();
+                });
+
+              queueService.__mesh.exchange.queue.createJob({jobType: 'subscriber', data: 'some data', batchId: 0});
+
             });
-
-            queueService.exchange.queue.createJob({jobType:'subscriber', data:'some data'});
           });
-
         })
         .then(function () {
 
-          return new Promise(function(resolve){
+          return new Promise(function (resolve) {
 
-            worker2Service.event.worker.on('emitter', function(job){
+            worker2Service.__mesh.event.worker.on('emitter', function (job) {
 
               expect(job.data).to.be('some emitter data');
 
               return resolve();
             });
 
-            queueService.exchange.queue.createJob({jobType:'subscriber', data:'some emitter data'});
+            queueService.__mesh.exchange.queue.createJob({jobType: 'emitter', data: 'some emitter data'});
           });
         })
         .then(function () {
 
-          worker1Service.stop()
-            .then(function(){
-              return worker2Service.stop();
-            })
-            .then(function(){
-              return queueService.stop();
-            })
-            .then(done)
-            .catch(done);
+          queueService.__mesh.exchange.queue.metrics(function (e, metrics) {
+
+            expect(metrics.attached["subscriber"]).to.be(1);
+
+            expect(metrics.attached["emitter"]).to.be(1);
+
+            worker1Service.stop()
+
+              .then(function () {
+
+                return worker2Service.stop();
+              })
+              .then(function () {
+
+                return queueService.stop();
+              })
+              .then(done)
+              .catch(done);
+          });
         })
         .catch(done);
     });
