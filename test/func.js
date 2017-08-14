@@ -773,6 +773,22 @@ describe('func', function () {
 
   context('feeds', function () {
 
+    it('creates a new feed', function (done) {
+      return done(new Error('not implemented'));
+    });
+
+    it('updates a feed', function (done) {
+      return done(new Error('not implemented'));
+    });
+
+    it('list all feeds', function (done) {
+      return done(new Error('not implemented'));
+    });
+
+    it('list and filters feeds', function (done) {
+      return done(new Error('not implemented'));
+    });
+
   });
 
   context('portal', function () {

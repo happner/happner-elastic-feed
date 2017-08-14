@@ -71,7 +71,7 @@ ElasticFeedService.prototype.__parseBaseConfig = function (config) {
   if (!config.name)  config.name = 'happner-elastic-feed';
 
   var hapnnerConfig = {
-    name:config.name,
+    name: config.name,
     happn: __happnConfig,
     modules: {
       "service": {
@@ -89,7 +89,9 @@ ElasticFeedService.prototype.__parseBaseConfig = function (config) {
         startMethod: "initialize"
       },
       "feed": {
-        startMethod: "initialize"
+        startMethod: "initialize",
+        stopMethod: "stop",
+        accessLevel: "mesh"
       },
       "utilities": {}
     }
@@ -143,12 +145,14 @@ ElasticFeedService.prototype.__parseWorkerConfig = function (config) {
 
   if (!baseConfig.endpoints) baseConfig.endpoints = {};
 
-  baseConfig.endpoints[config.queue.name] = {config: {
-    host:config.queue.host,
-    port:config.queue.port
-  }};
+  baseConfig.endpoints[config.queue.name] = {
+    config: {
+      host: config.queue.host,
+      port: config.queue.port
+    }
+  };
 
-  if (config.queue.secure){
+  if (config.queue.secure) {
 
     if (config.queue.username == null) config.queue.username = '_ADMIN';
 
@@ -258,7 +262,7 @@ ElasticFeedService.prototype.__initializeMesh = function (config, callback) {
   var _this = this;
 
   if (_this.__mesh == null) {
-    
+
     return Mesh.create(config, function (err, instance) {
 
       if (err) return callback(err);
@@ -380,9 +384,9 @@ ElasticFeedService.prototype.stop = function (opts, callback) {
 
   if (!opts) opts = {};
 
-  return new Promise(function(resolve, reject){
+  return new Promise(function (resolve, reject) {
 
-    return _this.__mesh.stop(opts, function(e){
+    return _this.__mesh.stop(opts, function (e) {
 
       if (e) return reject(e);
 
