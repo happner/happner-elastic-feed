@@ -12,6 +12,8 @@ describe('func', function () {
 
   var fs = require('fs');
 
+  var uuid = require('uuid');
+
   context('queue', function () {
 
     it('tests the queue functions', function (done) {
@@ -57,6 +59,7 @@ describe('func', function () {
           attached1 = workerId;
 
           expect(workerId.split('_')[0]).to.be('emitter');
+
           expect(queue.metrics().attached["emitter"]).to.be(1);
 
           return queue.detach({workerId: workerId});
@@ -78,11 +81,16 @@ describe('func', function () {
           return queue.attach({test: 14, jobType: "subscriber"});
         })
         .then(function (workerId) {
+
           attached4 = workerId;
           return queue.createBatch({data: {test: 'batch'}, jobType: "subscriber", count: 3});
         })
         .then(function (batchId) {
           createdBatchId = batchId;
+          return queue.getBatch(createdBatchId);
+        })
+        .then(function (batch) {
+          expect(batch.data.test).to.be('batch');
           return queue.createJob({data: {test: 15}, jobType: "subscriber", batchId: createdBatchId});
         })
         .then(function (createdJob) {
@@ -97,6 +105,8 @@ describe('func', function () {
         })
         .then(function (createdJob) {
 
+          created3 = createdJob;
+
           var _this = this;
 
           return new Promise(function (resolve) {
@@ -108,7 +118,7 @@ describe('func', function () {
 
           created3 = createdJob;
 
-          expect(queue.metrics().pending["subscriber"]).to.be(3);
+          expect(queue.metrics().assigned["subscriber"]).to.be(3);
 
           return queue.pop({workerId: attached2})
         })
@@ -118,7 +128,7 @@ describe('func', function () {
 
           expect(popped1.data.test).to.be(15);
 
-          expect(queue.metrics().pending["subscriber"]).to.be(2);
+          expect(queue.metrics().assigned["subscriber"]).to.be(2);
 
           return queue.pop({workerId: attached3})
         })
@@ -127,7 +137,7 @@ describe('func', function () {
           popped2 = poppedJob;
           expect(popped2.data.test).to.be(16);
 
-          expect(queue.metrics().pending["subscriber"]).to.be(1);
+          expect(queue.metrics().assigned["subscriber"]).to.be(1);
 
           return queue.pop({workerId: attached4})
         })
@@ -198,7 +208,7 @@ describe('func', function () {
 
     });
 
-    it.only('tests dropping a worker and transferring jobs to a different one', function (done) {
+    it('tests dropping a worker and transferring jobs to a different one', function (done) {
 
       this.timeout(10000);
 
@@ -290,7 +300,7 @@ describe('func', function () {
         })
         .then(function () {
 
-          expect(queue.metrics().pending["subscriber"]).to.be(4);
+          expect(queue.metrics().assigned["subscriber"]).to.be(4);
 
           return queue.pop({workerId: attached1})
         })
@@ -300,7 +310,7 @@ describe('func', function () {
 
           expect(popped1.data.test).to.be(25);
 
-          expect(queue.metrics().pending["subscriber"]).to.be(3);
+          expect(queue.metrics().assigned["subscriber"]).to.be(3);
 
           return queue.pop({workerId: attached2})
         })
@@ -310,7 +320,7 @@ describe('func', function () {
 
           expect(popped2.data.test).to.be(26);
 
-          expect(queue.metrics().pending["subscriber"]).to.be(2);
+          expect(queue.metrics().assigned["subscriber"]).to.be(2);
 
           return queue.pop({workerId: attached3})
         })
@@ -359,7 +369,7 @@ describe('func', function () {
 
           expect(popped.data.test).to.not.be(null);
 
-          queue.stop().then(done);
+          queue.stop(done);
         });
     });
 
@@ -405,12 +415,10 @@ describe('func', function () {
           return queue.attach({test: 22, jobType: testJobType});
         })
         .then(function (workerId) {
-
           attached2 = workerId;
           return queue.attach({test: 23, jobType: testJobType});
         })
         .then(function (workerId) {
-
           attached3 = workerId;
           return queue.attach({test: 24, jobType: testJobType});
         })
@@ -423,17 +431,14 @@ describe('func', function () {
           return queue.createJob({data: {test: 25}, jobType: testJobType, batchId: createdBatchId});
         })
         .then(function (createdJob) {
-
           created1 = createdJob;
           return queue.createJob({data: {test: 26}, jobType: testJobType, batchId: createdBatchId});
         })
         .then(function (createdJob) {
-
           created2 = createdJob;
           return queue.createJob({data: {test: 27}, jobType: testJobType, batchId: createdBatchId});
         })
         .then(function (createdJob) {
-
           created3 = createdJob;
           return queue.createJob({data: {test: 28}, jobType: testJobType, batchId: createdBatchId});
         })
@@ -450,15 +455,102 @@ describe('func', function () {
         })
         .then(function () {
 
-          expect(queue.metrics().pending["subscriber"]).to.be(4);
+          expect(queue.metrics().assigned[testJobType]).to.be(4);
 
-          
+          return queue.jobCountByState({jobType: testJobType, state:queue.JOB_STATE.ACTIVE});
         })
-    })
+        .then(function (jobCount) {
 
+          expect(jobCount).to.be(4);
+
+          return queue.searchJobs({jobType: testJobType, state:queue.JOB_STATE.ACTIVE, count:2});
+        })
+        .then(function (jobs) {
+
+          expect(jobs.length).to.be(2);
+
+          return queue.searchJobs({jobType: testJobType, state:queue.JOB_STATE.ACTIVE});
+        })
+        .then(function (jobs) {
+
+          expect(jobs.length).to.be(4);
+
+          return queue.updateJobs({jobType: testJobType, state:queue.JOB_STATE.ACTIVE}, {progress:80});
+        })
+        .then(function (ids) {
+
+          expect(ids.length).to.be(4);
+
+          return queue.searchJobs({jobType: testJobType, state:queue.JOB_STATE.ACTIVE});
+        })
+        .then(function (jobs) {
+
+          jobs.forEach(function(job){
+
+            expect(job.data.progress).to.be(80);
+          });
+
+          return queue.removeJobs({jobType: testJobType, state:queue.JOB_STATE.ACTIVE});
+        })
+        .then(function (removed) {
+
+          expect(removed.length).to.be(4);
+
+          return queue.searchJobs({jobType: testJobType});
+        })
+        .then(function (jobs) {
+
+          expect(jobs.length).to.be(0);
+
+          return queue.stop(done);
+        });
+    });
   });
 
   context('service', function () {
+
+    it('starts up and stops an elastic a subscriber mesh', function (done) {
+
+      var service = new Service();
+      var sourceConfig = {};
+
+      service
+        .subscriber(sourceConfig)
+        .then(function () {
+          return service.stop();
+        })
+        .then(done)
+        .catch(done);
+    });
+
+    it('starts up and stops an elastic a emitter mesh', function (done) {
+
+      var service = new Service();
+      var emitterConfig = {};
+
+      service
+        .emitter(emitterConfig)
+        .then(function () {
+          return service.stop();
+        })
+        .then(done)
+        .catch(done);
+    });
+
+    it('starts up and stops an elastic a portal mesh', function (done) {
+
+      var service = new Service();
+      var portalConfig = {};
+
+      service
+        .portal(portalConfig)
+        .then(function () {
+          return service.stop();
+        })
+        .then(done)
+        .catch(done);
+    });
+
 
     xit('starts up and stops an elastic a queue mesh', function (done) {
 
@@ -474,48 +566,9 @@ describe('func', function () {
       service
         .queue(queueConfig)
         .then(function () {
-          service.stop(done);
+          return service.stop();
         })
-        .catch(done);
-    });
-
-
-    it('starts up and stops an elastic a subscriber mesh', function (done) {
-
-      var service = new Service();
-      var sourceConfig = {};
-
-      service
-        .subscriber(sourceConfig)
-        .then(function () {
-          service.stop(done);
-        })
-        .catch(done);
-    });
-
-    it('starts up and stops an elastic a emitter mesh', function (done) {
-
-      var service = new Service();
-      var emitterConfig = {};
-
-      service
-        .emitter(emitterConfig)
-        .then(function () {
-          service.stop(done);
-        })
-        .catch(done);
-    });
-
-    it('starts up and stops an elastic a portal mesh', function (done) {
-
-      var service = new Service();
-      var portalConfig = {};
-
-      service
-        .portal(portalConfig)
-        .then(function () {
-          service.stop(done);
-        })
+        .then(done)
         .catch(done);
     });
 
@@ -531,12 +584,15 @@ describe('func', function () {
       };
 
       var subscriberConfig = {};
-      var workerConfig = {};
+      var workerConfig = {queue:queueConfig};
       var emitterConfig = {};
       var portalConfig = {};
 
       service
         .portal(portalConfig)
+        .then(function () {
+          return service.queue(queueConfig);
+        })
         .then(function () {
           return service.worker(workerConfig);
         })
@@ -547,11 +603,9 @@ describe('func', function () {
           return service.subscriber(subscriberConfig);
         })
         .then(function () {
-          return service.queue(queueConfig);
+          return service.stop();
         })
-        .then(function () {
-          service.stop(done);
-        })
+        .then(done)
         .catch(done);
     });
 
@@ -672,6 +726,22 @@ describe('func', function () {
               .then(function () {
 
                 return worker2Service.stop();
+              })
+              .then(function () {
+
+                return new Promise(function(resolve, reject){
+
+                  queueService.__mesh.exchange.queue.metrics(function (e, metrics) {
+
+                    try{
+                      expect(metrics.attached["subscriber"]).to.be(0);
+                      expect(metrics.attached["emitter"]).to.be(0);
+                      resolve();
+                    }catch(e){
+                      reject(e);
+                    }
+                  });
+                })
               })
               .then(function () {
 

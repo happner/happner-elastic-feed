@@ -258,7 +258,7 @@ ElasticFeedService.prototype.__initializeMesh = function (config, callback) {
   var _this = this;
 
   if (_this.__mesh == null) {
-
+    
     return Mesh.create(config, function (err, instance) {
 
       if (err) return callback(err);
@@ -375,7 +375,6 @@ ElasticFeedService.prototype.stop = function (opts, callback) {
   var _this = this;
 
   if (typeof opts == 'function') {
-    callback = opts;
     opts = {};
   }
 
