@@ -39,6 +39,14 @@ ElasticFeedService.prototype.__parseBaseConfig = function (config) {
 
   var CREDS_DATA_PASSWORD = process.env.CREDS_DATA_PASSWORD ? process.env.OUTPUT_PASSWORD : CREDS_DATA_PASSWORD;
 
+  if (!config.feed) config.feed = {};
+
+  if (!config.feed.output_secret){
+    config.feed.output_secret = process.env.CREDS_OUTPUT_SECRET ? process.env.CREDS_OUTPUT_SECRET : CREDS_DATA_PASSWORD;
+
+    if (process.env.CREDS_OUTPUT_SECRET == CREDS_DATA_PASSWORD) console.warn('feed output secret is the same as the admin password, not optimal...');
+  }
+
   var __happnConfig = {
     port: config.data.port,
     secure: true,
@@ -91,7 +99,10 @@ ElasticFeedService.prototype.__parseBaseConfig = function (config) {
       "feed": {
         startMethod: "initialize",
         stopMethod: "stop",
-        accessLevel: "mesh"
+        accessLevel: "mesh",
+        options:{
+          output_secret:CREDS_OUTPUT_SECRET
+        }
       },
       "utilities": {}
     }
