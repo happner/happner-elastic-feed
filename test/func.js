@@ -754,41 +754,250 @@ describe('func', function () {
         .catch(done);
     });
 
-    xit('registers an subscriber listener', function (done) {
+  });
 
-    });
+  context('feeds and dashboards', function () {
 
-    xit('creates a batch with 2 jobs', function (done) {
+    it('creates, updates and lists a feed', function (done) {
 
-    });
+      var queueService = new Service();
 
-    xit('round robins a worker from the queue, ensures we are cycling through available workers', function (done) {
+      var feedService = new Service();
 
-    });
+      var feedRandomName = uuid.v4();
 
-    xit('stops the queue, restarts the queue, ensures persistence', function (done) {
+      var queueConfig = {
+        jobTypes: {
+          "feed": {concurrency: 10}
+        }
+      };
 
+      var feedWorkerConfig = {
+        name: 'happner-feed-worker1',
+        queue: {username: '_ADMIN', password: 'happn', port: 55000, jobTypes: ["feed"]},
+        data: {
+          port: 55001
+        }
+      };
+
+      var feedData = {
+        action:'create',
+        name: 'Test feed ' + feedRandomName,
+        datapaths:[
+          '/test/path/1/*',
+          '/device/2/*',
+          '/device/3/*'
+        ]
+      };
+
+      var anotherFeedData = {
+        action:'create',
+        name: 'Test feed 2 ' + feedRandomName,
+        datapaths:[
+          '/test/path/21/*',
+          '/device/22/*',
+          '/device/23/*'
+        ]
+      };
+
+      queueService
+        .queue(queueConfig)
+        .then(function () {
+          return feedService.worker(feedWorkerConfig);
+        })
+        .then(function () {
+
+          return new Promise(function(resolve, reject){
+
+            feedService.__mesh.event.worker.on('feed', function (job) {
+
+              feedService.__mesh.exchange.feed.upsert(job.data).then(resolve).catch(reject);
+            });
+
+            queueService.__mesh.exchange.queue.createJob({jobType: 'feed', data: feedData, batchId: 0});
+          });
+        })
+        .then(function (created) {
+
+          return new Promise(function (resolve, reject) {
+
+            expect(created.version).to.be(1);
+
+            created.datapaths.push('/device/4/*');
+
+            feedService.__mesh.event.feed.on('feed-updated', function (feed) {
+
+              if (feed.version != 2) return reject(new Error('feed version was not updated'));
+
+              return resolve(feed);
+            });
+
+            feedService.__mesh.exchange.feed.upsert(created);
+          });
+        })
+        .then(function (updated) {
+
+          return feedService.__mesh.exchange.feed.upsert(anotherFeedData);
+        })
+        .then(function (created) {
+
+          expect(created.version).to.be(1);
+
+          return feedService.__mesh.exchange.feed.list();
+        })
+        .then(function (feeds) {
+
+          expect(feeds.length).to.be(2);
+
+          expect(feeds[0].name).to.be('Test feed ' + feedRandomName);
+
+          expect(feeds[1].name).to.be('Test feed 2 ' + feedRandomName);
+
+          expect(feeds[0].datapaths.length).to.be(4);
+
+          expect(feeds[0].version).to.be(2);
+
+          expect(feeds[1].version).to.be(1);
+
+          done();
+        })
+        .catch(done);
     });
   });
 
-  context('feeds', function () {
+  context('subscriber service', function () {
 
-    it('creates a new feed', function (done) {
-      return done(new Error('not implemented'));
+    it('tests the subscriber service', function(){
+
+      var queueService = new Service();
+
+      var subscriberService = new Service();
+
+      var feedRandomName = uuid.v4();
+
+      var queueConfig = {
+        jobTypes: {
+          "feed": {concurrency: 10},
+          "subscriber": {concurrency: 10},
+          "emitter": {concurrency: 10}
+        }
+      };
+
+      var subscriberConfig = {
+
+      };
+
+      var feedWorkerConfig = {
+        name: 'happner-subscriber-worker',
+        queue: {username: '_ADMIN', password: 'happn', port: 55000, jobTypes: ["feed", "subscriber", "emitter"]},
+        data: {
+          port: 55001
+        }
+      };
+
+      var feedData = {
+        action:'create',
+        name: 'subscriber test ' + feedRandomName,
+        datapaths:[
+          '/device/1/*',
+          '/device/2/*',
+          '/device/3/*'
+        ]
+      };
+
+      var anotherFeedData = {
+        action:'create',
+        name: 'subscriber test 2 ' + feedRandomName,
+        datapaths:[
+          '/device/21/*',
+          '/device/22/*',
+          '/device/23/*'
+        ]
+      };
+
+      queueService
+        .queue(queueConfig)
+        .then(function () {
+          return subscriberService.worker(feedWorkerConfig);
+        })
+        .then(function () {
+          return subscriberService.subscriber(subscriberConfig);
+        })
+        .then(function () {
+
+          return new Promise(function(resolve, reject){
+
+            var pushedCount = 0;
+
+            subscriberService.__mesh.event.worker.on('feed', function (job) {
+
+              subscriberService.__mesh.exchange.feed.upsert(job.data)
+                .then(function(){
+                  pushedCount++;
+                  if (pushedCount == 2) resolve();
+                })
+                .catch(reject);
+            });
+
+            queueService.__mesh.exchange.queue.createJob({jobType: 'feed', data: feedData, batchId: 0});
+            queueService.__mesh.exchange.queue.createJob({jobType: 'feed', data: anotherFeedData, batchId: 0});
+          });
+        })
+        .then(function () {
+          return new Promise(function(resolve){
+            //wait a bit, the subscriber should have picked up we added a new feed
+            setTimeout(resolve, 2000);
+          });
+        })
+        .then(function () {
+
+          return subscriberService.__mesh.exchange.subscriber.metrics();
+        })
+        .then(function (metrics) {
+
+          return new Promise(function(resolve) {
+
+            expect(metrics.feeds).to.be(2);
+            expect(metrics.paths).to.be(6);
+
+            resolve();
+          });
+        })
+        .then(function () {
+
+          return new Promise(function(resolve, reject) {
+
+            var pushedCount = 0;
+
+            subscriberService.__mesh.event.worker.on('emitter', function (job) {
+
+              try{
+
+                expect(job.data.action).to.eql('set');
+                expect(job.data.path).to.eql('/device/' + job.data[job.data.action].test + '/' + job.data[job.data.action].test);
+
+                pushedCount++;
+
+                if (pushedCount == 6) resolve();
+
+              }catch(e){
+
+                reject(e);
+              }
+            });
+
+            subscriberService.__mesh.data.set('/device/1/1', {test:'1'});
+            subscriberService.__mesh.data.set('/device/2/2', {test:'2'});
+            subscriberService.__mesh.data.set('/device/3/3', {test:'3'});
+
+            subscriberService.__mesh.data.set('/device/11/11', {test:'11'});
+            subscriberService.__mesh.data.set('/device/12/12', {test:'12'});
+            subscriberService.__mesh.data.set('/device/13/13', {test:'13'});
+          });
+        })
+        .then(done)
+        .catch(done);
     });
-
-    it('updates a feed', function (done) {
-      return done(new Error('not implemented'));
-    });
-
-    it('list all feeds', function (done) {
-      return done(new Error('not implemented'));
-    });
-
-    it('list and filters feeds', function (done) {
-      return done(new Error('not implemented'));
-    });
-
   });
 
   context('portal', function () {

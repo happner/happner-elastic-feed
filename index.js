@@ -2,19 +2,53 @@ var Promise = require('bluebird')
   , Mesh = require('happner-2')
   , Emitter = require('./lib/emitter')
   , Subscriber = require('./lib/subscriber')
-  , Feed = require('./lib/feed')
+  , Feed = require('./lib/feed/component')
   , Worker = require('./lib/worker')
   , Portal = require('./lib/portal/component')
+  , Proxy = require('./lib/portal/proxy')
+  , Dashboard = require('./lib/dashboard/component')
   , Queue = require('./lib/queue')
   , Service = require('./lib/service')
   , Utilities = require('./lib/utilities')
   , async = require('async')
   ;
 
+ElasticFeedService.prototype.SERVICE_TYPE = {
+  QUEUE: 0,
+  PORTAL: 1,
+  WORKER: 2,
+  SUBSCRIBER: 3,
+  EMITTER: 4,
+  PROXY:5,
+  DASHBOARD:6
+};
+
+
 function ElasticFeedService(options) {
 
   this.components = {};
 }
+
+ElasticFeedService.prototype.stop = function (opts, callback) {
+
+  var _this = this;
+
+  if (typeof opts == 'function') {
+    opts = {};
+  }
+
+  if (!opts) opts = {};
+
+  return new Promise(function (resolve, reject) {
+
+    return _this.__mesh.stop(opts, function (e) {
+
+      if (e) return reject(e);
+
+      resolve();
+    });
+  });
+};
 
 ElasticFeedService.prototype.__parseBaseConfig = function (config) {
 
@@ -42,9 +76,14 @@ ElasticFeedService.prototype.__parseBaseConfig = function (config) {
   if (!config.feed) config.feed = {};
 
   if (!config.feed.output_secret){
-    config.feed.output_secret = process.env.CREDS_OUTPUT_SECRET ? process.env.CREDS_OUTPUT_SECRET : CREDS_DATA_PASSWORD;
+
+    if (CREDS_DATA_PASSWORD) config.feed.output_secret = process.env.CREDS_OUTPUT_SECRET ? process.env.CREDS_OUTPUT_SECRET : CREDS_DATA_PASSWORD;
+
+      config.feed.output_secret = 'happner';
 
     if (process.env.CREDS_OUTPUT_SECRET == CREDS_DATA_PASSWORD) console.warn('feed output secret is the same as the admin password, not optimal...');
+
+    if (config.feed.output_secret == 'happner') console.warn('feed output secret is happner, hope you are testing...');
   }
 
   var __happnConfig = {
@@ -99,10 +138,7 @@ ElasticFeedService.prototype.__parseBaseConfig = function (config) {
       "feed": {
         startMethod: "initialize",
         stopMethod: "stop",
-        accessLevel: "mesh",
-        options:{
-          output_secret:CREDS_OUTPUT_SECRET
-        }
+        accessLevel: "mesh"
       },
       "utilities": {}
     }
@@ -220,6 +256,32 @@ ElasticFeedService.prototype.__parsePortalConfig = function (config) {
   return baseConfig;
 };
 
+ElasticFeedService.prototype.__parseProxyConfig = function (config) {
+
+  var baseConfig = this.__parseBaseConfig(config);
+
+  baseConfig.modules.proxy = {instance: new Proxy(config.proxy)};
+
+  baseConfig.components.proxy = {
+    startMethod: "initialize"
+  };
+
+  return baseConfig;
+};
+
+ElasticFeedService.prototype.__parseDashboardConfig = function (config) {
+
+  var baseConfig = this.__parseBaseConfig(config);
+
+  baseConfig.modules.dashboard = {instance: new Dashboard(config.dashboard)};
+
+  baseConfig.components.dashboard = {
+    startMethod: "initialize"
+  };
+
+  return baseConfig;
+};
+
 
 ElasticFeedService.prototype.__parseSubscriberConfig = function (config) {
 
@@ -287,14 +349,6 @@ ElasticFeedService.prototype.__initializeMesh = function (config, callback) {
   _this.__appendComponent(config, callback);
 };
 
-ElasticFeedService.prototype.SERVICE_TYPE = {
-  QUEUE: 0,
-  PORTAL: 1,
-  WORKER: 2,
-  SUBSCRIBER: 3,
-  EMITTER: 4
-};
-
 ElasticFeedService.prototype.__activateService = function (type, config, callback) {
 
   try {
@@ -310,6 +364,10 @@ ElasticFeedService.prototype.__activateService = function (type, config, callbac
     if (type == this.SERVICE_TYPE.SUBSCRIBER) typeConfig = this.__parseSubscriberConfig(config);
 
     if (type == this.SERVICE_TYPE.EMITTER) typeConfig = this.__parseEmitterConfig(config);
+
+    if (type == this.SERVICE_TYPE.PROXY) typeConfig = this.__parseProxyConfig(config);
+
+    if (type == this.SERVICE_TYPE.DASHBOARD) typeConfig = this.__parseDashboardConfig(config);
 
     return this.__initializeMesh(typeConfig, callback);
 
@@ -370,6 +428,34 @@ ElasticFeedService.prototype.portal = function (config) {
   });
 };
 
+ElasticFeedService.prototype.proxy = function (config) {
+
+  var _this = this;
+
+  return new Promise(function (resolve, reject) {
+
+    _this.__activateService(_this.SERVICE_TYPE.PROXY, config, function (e) {
+      if (e) return reject(e);
+      resolve(_this);
+    });
+  });
+};
+
+
+ElasticFeedService.prototype.dashboard = function (config) {
+
+  var _this = this;
+
+  return new Promise(function (resolve, reject) {
+
+    _this.__activateService(_this.SERVICE_TYPE.DASHBOARD, config, function (e) {
+      if (e) return reject(e);
+      resolve(_this);
+    });
+  });
+};
+
+
 ElasticFeedService.prototype.worker = function (config) {
 
   var _this = this;
@@ -381,27 +467,6 @@ ElasticFeedService.prototype.worker = function (config) {
     _this.__activateService(_this.SERVICE_TYPE.WORKER, config, function (e) {
       if (e) return reject(e);
       resolve(_this);
-    });
-  });
-};
-
-ElasticFeedService.prototype.stop = function (opts, callback) {
-
-  var _this = this;
-
-  if (typeof opts == 'function') {
-    opts = {};
-  }
-
-  if (!opts) opts = {};
-
-  return new Promise(function (resolve, reject) {
-
-    return _this.__mesh.stop(opts, function (e) {
-
-      if (e) return reject(e);
-
-      resolve();
     });
   });
 };
