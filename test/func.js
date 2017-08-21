@@ -867,18 +867,18 @@ describe('func', function () {
 
   context('subscriber service', function () {
 
-    it('tests the subscriber service', function(){
+    it.only('tests the subscriber service', function(done){
 
       var queueService = new Service();
 
       var subscriberService = new Service();
 
+      var emitterService = new Service();
+
       var feedRandomName = uuid.v4();
 
       var queueConfig = {
         jobTypes: {
-          "feed": {concurrency: 10},
-          "subscriber": {concurrency: 10},
           "emitter": {concurrency: 10}
         }
       };
@@ -887,13 +887,22 @@ describe('func', function () {
 
       };
 
-      var feedWorkerConfig = {
-        name: 'happner-subscriber-worker',
-        queue: {username: '_ADMIN', password: 'happn', port: 55000, jobTypes: ["feed", "subscriber", "emitter"]},
+      var subscriberWorkerConfig = {
+        name: 'happner-emitter-worker',
+        queue: {username: '_ADMIN', password: 'happn', port: 55000, jobTypes: ["emitter"]},
         data: {
           port: 55001
         }
       };
+
+      var emitterWorkerConfig = {
+        name: 'happner-emitter-worker',
+        queue: {username: '_ADMIN', password: 'happn', port: 55000, jobTypes: ["emitter"]},
+        data: {
+          port: 55002
+        }
+      };
+
 
       var feedData = {
         action:'create',
@@ -915,37 +924,41 @@ describe('func', function () {
         ]
       };
 
+      var pushedCount = 0;
+
       queueService
         .queue(queueConfig)
         .then(function () {
-          return subscriberService.worker(feedWorkerConfig);
+          return subscriberService.worker(subscriberWorkerConfig);
+        })
+        .then(function () {
+          return emitterService.worker(emitterWorkerConfig);
         })
         .then(function () {
           return subscriberService.subscriber(subscriberConfig);
         })
-        .then(function () {
+        .then(function() {
 
-          return new Promise(function(resolve, reject){
+          return emitterService.__mesh.event.worker.on('emitter', function (job) {
 
-            var pushedCount = 0;
+            expect(job.data.action).to.eql('set');
+            expect(job.data.path).to.eql('/device/' + job.data[job.data.action].test + '/' + job.data[job.data.action].test);
 
-            subscriberService.__mesh.event.worker.on('feed', function (job) {
+            pushedCount++;
 
-              subscriberService.__mesh.exchange.feed.upsert(job.data)
-                .then(function(){
-                  pushedCount++;
-                  if (pushedCount == 2) resolve();
-                })
-                .catch(reject);
-            });
+            if (pushedCount == 6) done();
 
-            queueService.__mesh.exchange.queue.createJob({jobType: 'feed', data: feedData, batchId: 0});
-            queueService.__mesh.exchange.queue.createJob({jobType: 'feed', data: anotherFeedData, batchId: 0});
           });
         })
         .then(function () {
+          return subscriberService.__mesh.exchange.feed.upsert(feedData);
+        })
+        .then(function () {
+          return subscriberService.__mesh.exchange.feed.upsert(anotherFeedData);
+        })
+        .then(function () {
+
           return new Promise(function(resolve){
-            //wait a bit, the subscriber should have picked up we added a new feed
             setTimeout(resolve, 2000);
           });
         })
@@ -957,45 +970,23 @@ describe('func', function () {
 
           return new Promise(function(resolve) {
 
-            expect(metrics.feeds).to.be(2);
-            expect(metrics.paths).to.be(6);
+            expect(metrics.feeds.count).to.be(2);
 
             resolve();
           });
         })
         .then(function () {
 
-          return new Promise(function(resolve, reject) {
+          subscriberService.__mesh.data.set('/device/1/1', {test:'1'});
+          subscriberService.__mesh.data.set('/device/2/2', {test:'2'});
+          subscriberService.__mesh.data.set('/device/3/3', {test:'3'});
 
-            var pushedCount = 0;
+          subscriberService.__mesh.data.set('/device/11/11', {test:'11'});
+          subscriberService.__mesh.data.set('/device/12/12', {test:'12'});
+          subscriberService.__mesh.data.set('/device/13/13', {test:'13'});
 
-            subscriberService.__mesh.event.worker.on('emitter', function (job) {
-
-              try{
-
-                expect(job.data.action).to.eql('set');
-                expect(job.data.path).to.eql('/device/' + job.data[job.data.action].test + '/' + job.data[job.data.action].test);
-
-                pushedCount++;
-
-                if (pushedCount == 6) resolve();
-
-              }catch(e){
-
-                reject(e);
-              }
-            });
-
-            subscriberService.__mesh.data.set('/device/1/1', {test:'1'});
-            subscriberService.__mesh.data.set('/device/2/2', {test:'2'});
-            subscriberService.__mesh.data.set('/device/3/3', {test:'3'});
-
-            subscriberService.__mesh.data.set('/device/11/11', {test:'11'});
-            subscriberService.__mesh.data.set('/device/12/12', {test:'12'});
-            subscriberService.__mesh.data.set('/device/13/13', {test:'13'});
-          });
+          //go back up to the second step worker listens on emitter
         })
-        .then(done)
         .catch(done);
     });
   });

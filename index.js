@@ -294,7 +294,8 @@ ElasticFeedService.prototype.__parseSubscriberConfig = function (config) {
   baseConfig.modules.subscriber = {instance: new Subscriber(config.subscriber)};
 
   baseConfig.components.subscriber = {
-    startMethod: "initialize"
+    startMethod: "initialize",
+    accessLevel: "mesh"
   };
 
   return baseConfig;
@@ -325,9 +326,15 @@ ElasticFeedService.prototype.__appendComponent = function (config, callback) {
         _this.components[componentName] = config.modules[componentName].instance;
         return componentNameCB();
       })
-      .catch(componentNameCB);
+      .catch(function(e){
 
-  }, callback);
+        return componentNameCB(e);
+      });
+
+  }, function(e){
+
+    return callback(e);
+  });
 };
 
 ElasticFeedService.prototype.__initializeMesh = function (config, callback) {
