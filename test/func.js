@@ -930,6 +930,8 @@ describe('func', function () {
 
       var pushedCount = 0;
 
+      var failedAlready = false;
+
       queueService
         .queue(queueConfig)
         .then(function () {
@@ -945,13 +947,24 @@ describe('func', function () {
 
           return emitterService.__mesh.event.worker.on('emitter', function (job) {
 
-            expect(job.data.action).to.eql('set');
-            expect(job.data.path).to.eql('/device/' + job.data[job.data.action].test + '/' + job.data[job.data.action].test);
+            emitterService.__mesh.exchange.worker.getBatch(job.batchId)
 
-            pushedCount++;
+              .then(function(batch){
 
-            if (pushedCount == 6) done();
+                expect(batch.data.meta.path).to.eql('/device/' + batch.data.data.test + '/' + batch.data.data.test);
 
+                pushedCount++;
+
+                if (pushedCount == 5) done();
+              })
+
+              .catch(function(e){
+
+                if (!failedAlready) {
+                  failedAlready = true;
+                  return done(e);
+                }
+              });
           });
         })
         .then(function () {
