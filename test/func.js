@@ -869,6 +869,8 @@ describe('func', function () {
 
     it.only('tests the subscriber service', function(done){
 
+      this.timeout(15000);
+
       var queueService = new Service();
 
       var subscriberService = new Service();
@@ -911,17 +913,19 @@ describe('func', function () {
           '/device/1/*',
           '/device/2/*',
           '/device/3/*'
-        ]
+        ],
+        state:2
       };
 
       var anotherFeedData = {
         action:'create',
         name: 'subscriber test 2 ' + feedRandomName,
         datapaths:[
-          '/device/21/*',
-          '/device/22/*',
-          '/device/23/*'
-        ]
+          '/device/11/*',
+          '/device/12/*',
+          '/device/13/*'
+        ],
+        state:2
       };
 
       var pushedCount = 0;
@@ -971,19 +975,22 @@ describe('func', function () {
           return new Promise(function(resolve) {
 
             expect(metrics.feeds.count).to.be(2);
+            expect(metrics.paths.count).to.be(6);
 
             resolve();
           });
         })
         .then(function () {
 
-          subscriberService.__mesh.data.set('/device/1/1', {test:'1'});
-          subscriberService.__mesh.data.set('/device/2/2', {test:'2'});
-          subscriberService.__mesh.data.set('/device/3/3', {test:'3'});
+          var subscriberMesh =  subscriberService.__mesh._mesh;
 
-          subscriberService.__mesh.data.set('/device/11/11', {test:'11'});
-          subscriberService.__mesh.data.set('/device/12/12', {test:'12'});
-          subscriberService.__mesh.data.set('/device/13/13', {test:'13'});
+          subscriberMesh.data.set('/device/1/1', {test:'1'});
+          subscriberMesh.data.set('/device/2/2', {test:'2'});
+          subscriberMesh.data.set('/device/3/3', {test:'3'});
+
+          subscriberMesh.data.set('/device/11/11', {test:'11'});
+          subscriberMesh.data.set('/device/12/12', {test:'12'});
+          subscriberMesh.data.set('/device/13/13', {test:'13'});
 
           //go back up to the second step worker listens on emitter
         })
