@@ -652,7 +652,7 @@ describe('func', function () {
         .catch(done);
     });
 
-    it.only('attaches 2 workers via the mesh, gets emitted jobs', function (done) {
+    it('attaches 2 workers via the mesh, gets emitted jobs', function (done) {
 
       var queueService = new Service();
 
@@ -690,71 +690,51 @@ describe('func', function () {
       queueService
         .queue(queueConfig)
         .then(function () {
-          console.log('q:::')
           return worker1Service.worker(worker1Config);
         })
         .then(function () {
-          console.log('w1:::')
           return worker2Service.worker(worker2Config);
         })
         .then(function () {
-          console.log('w2:::')
           return new Promise(function (resolve, reject) {
 
             queueService.__mesh.exchange.queue.metrics(function (e, metrics) {
-
-
-              console.log('m:::', e, metrics);
 
               if (e) return reject(e);
 
               expect(metrics.attached["subscriber"]).to.be(1);
 
-              console.log('m1:::');
-
               expect(metrics.attached["emitter"]).to.be(1);
-
-              console.log('m2:::', worker1Service.__mesh.event.worker.on);
 
               try{
 
                 worker1Service.__mesh.event.worker.on('subscriber', function (job) {
 
-                  console.log('jc2:::', job);
+                  queueService.__mesh.exchange.queue.metrics(function (e, metrics1) {
 
-                  queueService.__mesh.exchange.queue.metrics(function (e, metrics) {
-
-                    console.log('met:::', metrics);
-
-                    expect(metrics.pending["subscriber"]).to.be(1);
-
-                    console.log('met:::', metrics);
+                    expect(metrics1.busy["subscriber"]).to.be(1);
 
                     expect(job.data).to.be('some data');
 
-                    console.log('met:::', metrics);
-
                     subscriberJob = job;
-
-                    console.log('met:::', metrics);
 
                     return resolve();
                   });
+
+                }, function(e){
+
+                  if (e) return reject(e);
+
+                  queueService.__mesh.exchange.queue.createJob({jobType: 'subscriber', data: 'some data', batchId: 0});
                 });
 
-                console.log('jc0:::');
-                queueService.__mesh.exchange.queue.createJob({jobType: 'subscriber', data: 'some data', batchId: 0});
-                console.log('jc1:::');
               }catch(e){
-                console.log('one:::', e);
                 return reject(e);
               }
             });
           });
         })
         .then(function () {
-
-          console.log('j:::');
 
           return new Promise(function (resolve, reject) {
 
@@ -777,11 +757,9 @@ describe('func', function () {
           });
         })
         .then(function () {
-          console.log('u1:::');
           return queueService.__mesh.exchange.queue.updateBusyJob({id: subscriberJob.id, state: 2});
         })
         .then(function () {
-          console.log('u2:::');
           return queueService.__mesh.exchange.queue.updateBusyJob({id: emitterJob.id, state: 2});
         })
         .then(function () {

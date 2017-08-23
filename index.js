@@ -81,7 +81,12 @@ ElasticFeedService.prototype.__instantiateServiceInstance = function(config, ins
     }.bind(instance);
   }
 
-  instance.__metrics = {};
+  Object.defineProperty(instance, '__metrics', {
+    enumerable: true,
+    writable: true,
+    value: {}
+  });
+
 
   instance.__updateMetric = function (key, subkey, value, $happn) {
 
@@ -97,11 +102,11 @@ ElasticFeedService.prototype.__instantiateServiceInstance = function(config, ins
 
   instance.metrics = function () {
 
-    var _this = this;
+    var _instance = this;
 
     return new Promise(function (resolve) {
 
-      resolve(_this.__metrics);
+      resolve(_instance.__metrics);
     });
 
   }.bind(instance);
