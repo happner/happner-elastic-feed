@@ -11,6 +11,7 @@ var Promise = require('bluebird')
   , Service = require('./lib/service')
   , Utilities = require('./lib/utilities')
   , async = require('async')
+  , EventEmitter = require('events').EventEmitter
   ;
 
 ElasticFeedService.prototype.SERVICE_TYPE = {
@@ -48,6 +49,64 @@ ElasticFeedService.prototype.stop = function (opts, callback) {
       resolve();
     });
   });
+};
+
+ElasticFeedService.prototype.__instantiateServiceInstance = function(config, instanceClass){
+
+  var instance = new instanceClass(config);
+
+  if (!instance.on){
+
+    instance.__events = new EventEmitter();
+
+    instance.on = function(key, handler){
+      return this.__events.on(key, handler);
+    }.bind(instance);
+
+    instance.off = function (key, handler) {
+
+      return this.__events.removeListener(key, handler);
+    }.bind(instance);
+
+    instance.emit = function (key, data, $happn) {
+
+      var _this = this;
+
+      if ($happn) $happn.emit(key, data, function (e) {
+        if (e) _this.__events.emit('emit-failure', [key, data]);
+      });
+
+      _this.__events.emit(key, data);
+
+    }.bind(instance);
+  }
+
+  instance.__metrics = {};
+
+  instance.__updateMetric = function (key, subkey, value, $happn) {
+
+    if (!this.__metrics[key]) this.__metrics[key] = {};
+
+    if (!this.__metrics[key][subkey]) this.__metrics[key][subkey] = 0;
+
+    this.__metrics[key][subkey] += value;
+
+    this.emit('metric-changed', {key: key, subkey: subkey, value: value}, $happn);
+
+  }.bind(instance);
+
+  instance.metrics = function () {
+
+    var _this = this;
+
+    return new Promise(function (resolve) {
+
+      resolve(_this.__metrics);
+    });
+
+  }.bind(instance);
+
+  return instance;
 };
 
 ElasticFeedService.prototype.__parseBaseConfig = function (config) {
@@ -153,7 +212,7 @@ ElasticFeedService.prototype.__parseEmitterConfig = function (config) {
 
   if (!config.data) config.data = {};
 
-  config.modules.emitter = {instance: new Emitter(config.emitter)};
+  config.modules.emitter = {instance: this.__instantiateServiceInstance(config, Emitter)};
 
   config.components.emitter = {
     startMethod: "initialize"
@@ -182,7 +241,7 @@ ElasticFeedService.prototype.__parseWorkerConfig = function (config) {
 
   config.worker.queueMeshName = config.queue.name;
 
-  baseConfig.modules.worker = {instance: new Worker(config)};
+  baseConfig.modules.worker = {instance: this.__instantiateServiceInstance(config, Worker)};
 
   baseConfig.components.worker = {
     startMethod: "initialize",
@@ -233,7 +292,7 @@ ElasticFeedService.prototype.__parseQueueConfig = function (config) {
 
   if (!config.queue.kue.prefix) config.queue.kue.prefix = config.name;
 
-  baseConfig.modules.queue = {instance: new Queue(config.queue)};
+  baseConfig.modules.queue = {instance: this.__instantiateServiceInstance(config, Queue)};
 
   baseConfig.components.queue = {
     startMethod: "initialize",
@@ -247,7 +306,7 @@ ElasticFeedService.prototype.__parsePortalConfig = function (config) {
 
   var baseConfig = this.__parseBaseConfig(config);
 
-  baseConfig.modules.portal = {instance: new Portal(config.portal)};
+  baseConfig.modules.portal = {instance: this.__instantiateServiceInstance(config, Portal)};
 
   baseConfig.components.portal = {
     startMethod: "initialize"
@@ -260,7 +319,7 @@ ElasticFeedService.prototype.__parseProxyConfig = function (config) {
 
   var baseConfig = this.__parseBaseConfig(config);
 
-  baseConfig.modules.proxy = {instance: new Proxy(config.proxy)};
+  baseConfig.modules.proxy = {instance: this.__instantiateServiceInstance(config, Proxy)};
 
   baseConfig.components.proxy = {
     startMethod: "initialize"
@@ -273,7 +332,7 @@ ElasticFeedService.prototype.__parseDashboardConfig = function (config) {
 
   var baseConfig = this.__parseBaseConfig(config);
 
-  baseConfig.modules.dashboard = {instance: new Dashboard(config.dashboard)};
+  baseConfig.modules.dashboard = {instance: this.__instantiateServiceInstance(config, Dashboard)};
 
   baseConfig.components.dashboard = {
     startMethod: "initialize"
@@ -291,7 +350,7 @@ ElasticFeedService.prototype.__parseSubscriberConfig = function (config) {
 
   if (!config.subscriber) config.subscriber = {port: 55000, password: CREDS_SUBSCRIBER_PASSWORD};
 
-  baseConfig.modules.subscriber = {instance: new Subscriber(config.subscriber)};
+  baseConfig.modules.subscriber = {instance: this.__instantiateServiceInstance(config, Subscriber)};
 
   baseConfig.components.subscriber = {
     startMethod: "initialize",
