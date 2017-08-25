@@ -2,7 +2,9 @@
   "name": "happner-elastic-feed",
   "version": "1.0.0",
   "scripts": {
-    "test": "mocha silence.js test"
+    "test": "mocha silence.js test",
+    "test-func": "mocha silence.js test/func.js",
+    "test-perf": "mocha silence.js test/perf.js"
   },
   "devDependencies": {
     "assert": "^1.4.0",

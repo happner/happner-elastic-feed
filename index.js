@@ -62,17 +62,6 @@ ElasticFeedService.prototype.stop = function (opts, callback) {
 
     if (!config.data.elastic_url) config.data.elastic_url = "http://localhost:9200";
 
-    if (!config.data.dataroutes) config.data.dataroutes = [
-      {
-        pattern: "/happner-feed-system/{{type}}",
-        index: "happner-feed-system"
-      }
-    ];
-
-    if (!config.data.indexes) config.data.indexes = [
-      {index: "happner-feed-system"}
-    ];
-
     var CREDS_DATA_PASSWORD = process.env.CREDS_DATA_PASSWORD ? process.env.OUTPUT_PASSWORD : CREDS_DATA_PASSWORD;
 
     if (!config.feed) config.feed = {};
@@ -92,12 +81,17 @@ ElasticFeedService.prototype.stop = function (opts, callback) {
                 provider: 'happner-elastic-dataprovider',
                 settings: {
                   host: config.data.url,
-                  indexes: config.data.indexes,
-                  dataroutes: config.data.dataroutes
-                }
+                  dataroutes: [{
+                    pattern: "/happner-feed-data/{{index}}/{{type}}/*",
+                    dynamic:true
+                  }]
+                },
+                patterns: [
+                  '/happner-feed-data/*'
+                ]
               },
               {
-                name: 'local-store',
+                name: 'happner-elastic-feed-config',
                 isDefault: true
               }
             ]
@@ -141,10 +135,6 @@ ElasticFeedService.prototype.stop = function (opts, callback) {
   ElasticFeedService.prototype.__parseEmitterConfig = function (config) {
 
     var emitterConfig = this.__parseBaseConfig(config);
-
-    emitterConfig.happn.services.data.config.datastores[0].settings.dataroutes.push({
-      pattern: "/happner-feed-data/{{index}}/*"
-    });
 
     emitterConfig.components.emitter = {
       startMethod: "initialize",
@@ -306,13 +296,15 @@ ElasticFeedService.prototype.stop = function (opts, callback) {
         return this.__events.removeListener(key, handler);
       }.bind(instance);
 
-      instance.emit = function (key, data, $happn) {
+      instance.emit = function (key, data, $happn, callback) {
 
         var _this = this;
 
-        if ($happn) $happn.emit(key, data, function (e) {
+        if (!callback) callback = function (e) {
           if (e) _this.__events.emit('emit-failure', [key, data]);
-        });
+        };
+
+        if ($happn) $happn.emit(key, data, callback);
 
         _this.__events.emit(key, data);
 
