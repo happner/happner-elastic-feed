@@ -16,7 +16,7 @@ describe('happner-elastic-feed-functional-tests', function () {
 
   context('queue', function () {
 
-    xit('tests the queue functions', function (done) {
+    it('tests the queue functions', function (done) {
 
       this.timeout(10000);
 
@@ -212,7 +212,7 @@ describe('happner-elastic-feed-functional-tests', function () {
 
     });
 
-    xit('tests dropping a worker and transferring jobs to a different one', function (done) {
+    it('tests dropping a worker and transferring jobs to a different one', function (done) {
 
       this.timeout(10000);
 
@@ -381,7 +381,7 @@ describe('happner-elastic-feed-functional-tests', function () {
         });
     });
 
-    xit('tests job data management functions', function (done) {
+    it('tests job data management functions', function (done) {
 
       this.timeout(10000);
 
@@ -521,8 +521,7 @@ describe('happner-elastic-feed-functional-tests', function () {
 
   context('service', function () {
 
-
-    xit('starts up and stops an elastic emitter mesh', function (done) {
+    it('starts up and stops an elastic emitter mesh', function (done) {
 
       this.timeout(5000);
 
@@ -573,29 +572,7 @@ describe('happner-elastic-feed-functional-tests', function () {
     });
 
 
-    xit('starts up and stops an elastic a queue mesh', function (done) {
-
-      var service = new Service();
-
-      var queueConfig = {
-        queue: {
-          jobTypes: {
-            "subscriber": {concurrency: 10},
-            "emitter": {concurrency: 10}
-          }
-        }
-      };
-
-      service
-        .queue(queueConfig)
-        .then(function () {
-          return service.stop();
-        })
-        .then(done)
-        .catch(done);
-    });
-
-    xit('starts up and stops an elastic a subscriber mesh', function (done) {
+    it('starts up and stops an elastic a subscriber mesh', function (done) {
 
       this.timeout(5000);
 
@@ -670,7 +647,7 @@ describe('happner-elastic-feed-functional-tests', function () {
         .catch(done);
     });
 
-    xit('attaches 2 workers via the mesh, gets emitted jobs', function (done) {
+    it('attaches 2 workers via the mesh, gets emitted jobs', function (done) {
 
       var queueService = new Service();
 
@@ -831,7 +808,7 @@ describe('happner-elastic-feed-functional-tests', function () {
 
   context('feeds and dashboards', function () {
 
-    xit('creates, updates and lists a feed', function (done) {
+    it('creates, updates and lists a feed', function (done) {
 
       this.timeout(15000);
 
@@ -974,7 +951,7 @@ describe('happner-elastic-feed-functional-tests', function () {
 
   context('subscriber and emitter services', function () {
 
-    xit('tests the subscriber service', function (done) {
+    it('tests the subscriber service', function (done) {
 
       this.timeout(15000);
 
@@ -1128,7 +1105,7 @@ describe('happner-elastic-feed-functional-tests', function () {
         .catch(done);
     });
 
-    xit ('tests the emitter push of the data to the feed', function (done) {
+    it ('tests the emitter push of the data to the feed', function (done) {
 
       this.timeout(10000);
 
@@ -1205,7 +1182,7 @@ describe('happner-elastic-feed-functional-tests', function () {
       feed.__handleEmitJob(mockJob, mockHappn);
     });
 
-    it.only('tests the emitter service', function (done) {
+    it('tests the emitter service', function (done) {
 
       this.timeout(15000);
 

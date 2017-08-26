@@ -1,5 +1,5 @@
 
-describe('happner-elastic-feed-functional-tests', function () {
+describe('happner-elastic-feed-perf-tests', function () {
 
   this.timeout(5000);
 

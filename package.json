@@ -22,7 +22,7 @@
     "happn-logger": "0.0.1",
     "happner-2": "5.0.0",
     "happn-util-crypto": "0.2.3",
-    "happner-elastic-dataprovider": "*",
+    "happner-elastic-dataprovider": "2.1.0",
     "ioredis": "3.1.2",
     "kue": "0.11.6",
     "sift": "^5.0.0",
