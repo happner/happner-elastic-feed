@@ -1107,7 +1107,7 @@ describe('happner-elastic-feed-functional-tests', function () {
 
     it ('tests the emitter push of the data to the feed', function (done) {
 
-      this.timeout(10000);
+      this.timeout(20000);
 
       var service = new Service();
 
@@ -1150,6 +1150,14 @@ describe('happner-elastic-feed-functional-tests', function () {
               return new Promise(function (resolve) {
 
                 return resolve(mockBatch);
+              });
+            },
+
+            jobComplete : function(job, message){
+
+              return new Promise(function (resolve) {
+
+                return resolve(job);
               });
             }
           }
@@ -1266,7 +1274,6 @@ describe('happner-elastic-feed-functional-tests', function () {
           return subscriberService.subscriber(subscriberConfig);
         })
         .then(function () {
-
           return new Promise(function (resolve) {
 
             emitterService.__mesh.event.emitter.on('handle-job-failed', function (error) {
@@ -1309,7 +1316,15 @@ describe('happner-elastic-feed-functional-tests', function () {
 
                     expect(['11','12','13'].indexOf(results[2].test) > -1).to.be(true);
 
-                    done();
+                    emitterService.stop()
+                      .then(function(){
+                        return subscriberService.stop();
+                      })
+                      .then(function(){
+                        return queueService.stop();
+                      })
+                      .then(done)
+                      .catch(done)
                   });
                 });
               }
@@ -1323,23 +1338,19 @@ describe('happner-elastic-feed-functional-tests', function () {
           });
         })
         .then(function () {
-
           return subscriberService.__mesh.exchange.feed.upsert(feedData);
         })
         .then(function (feed) {
-
           feedId = feed.id;
           return subscriberService.__mesh.exchange.feed.upsert(anotherFeedData);
         })
         .then(function (anotherFeed) {
-
           anotherFeedId = anotherFeed.id;
           return new Promise(function (resolve) {
             setTimeout(resolve, 2000);
           });
         })
         .then(function () {
-
           return subscriberService.__mesh.exchange.subscriber.metrics();
         })
         .then(function (metrics) {

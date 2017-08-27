@@ -1,4 +1,4 @@
-describe.only('happner-elastic-feed-perf-tests', function () {
+describe('happner-elastic-feed-perf-tests', function () {
 
   this.timeout(5000);
 
@@ -14,7 +14,7 @@ describe.only('happner-elastic-feed-perf-tests', function () {
 
   var T = 30000;
 
-  var UPDATE_MOD = 10;
+  var UPDATE_MOD = 100;
 
   it('does ' + N + ' or more jobs in ' + T + ' milliseconds', function (done) {
 
