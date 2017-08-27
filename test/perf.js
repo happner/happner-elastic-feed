@@ -1,5 +1,4 @@
-
-describe('happner-elastic-feed-perf-tests', function () {
+describe.only('happner-elastic-feed-perf-tests', function () {
 
   this.timeout(5000);
 
@@ -11,11 +10,13 @@ describe('happner-elastic-feed-perf-tests', function () {
 
   var uuid = require('uuid');
 
-  var N = 10;
+  var N = 1000;
 
-  var T = 5000;
+  var T = 30000;
 
-  it('does ' + N + ' or more jobs in ' + T + ' milliseconds', function(done){
+  var UPDATE_MOD = 10;
+
+  it('does ' + N + ' or more jobs in ' + T + ' milliseconds', function (done) {
 
     this.timeout(T + 5000);
 
@@ -66,17 +67,19 @@ describe('happner-elastic-feed-perf-tests', function () {
 
     var feedId;
 
-    var anotherFeedId;
-
     var setJobCount = 0;
 
     var completedJobCount = 0;
+
+    var startedJobCount = 0;
 
     var failedAlready = false;
 
     var completedAlready = false;
 
     var started, completed;
+
+    started = Date.now();
 
     queueService
       .queue(queueConfig)
@@ -94,7 +97,14 @@ describe('happner-elastic-feed-perf-tests', function () {
       })
       .then(function () {
 
-        return new Promise(function (resolve) {
+        return new Promise(function (resolve, reject) {
+
+          emitterService.__mesh.event.emitter.on('handle-job', function (job) {
+
+            startedJobCount++;
+
+            if (startedJobCount % UPDATE_MOD == 0) console.log('started:' + startedJobCount.toString() + ' out of ' + N);
+          });
 
           emitterService.__mesh.event.emitter.on('handle-job-failed', function (error) {
 
@@ -106,36 +116,41 @@ describe('happner-elastic-feed-perf-tests', function () {
 
               done(new Error(error.message));
             }
-          });
-
-          emitterService.__mesh.event.emitter.on('handle-job-ok', function (results) {
-
-            completedJobCount++;
-
-            console.log('set:::', setJobCount);
-            console.log('completed:::', completedJobCount);
-
-            if (completedJobCount >= N) {
-
-              if (completedAlready) return;
-
-              completedAlready = true;
-
-              completed = Date.now();
-
-              var completedIn = completed - started;
-
-              console.log('completed in ' + completedIn + ' milliseconds.');
-
-              if (completedIn >= N + 3000) return done(new Error('not completed within the specified timeframe of ' + N + ' milliseconds'));
-
-              return done();
-            }
           }, function (e) {
 
-            if (e) return done(e);
+            if (e) return reject(e);
 
-            resolve();
+            emitterService.__mesh.event.emitter.on('handle-job-ok', function (results) {
+
+              completedJobCount++;
+
+              if (completedJobCount % UPDATE_MOD == 0) console.log('completed:' + completedJobCount.toString() + ' out of ' + N);
+
+              if (completedJobCount >= N) {
+
+                if (completedAlready) return;
+
+                completedAlready = true;
+
+                completed = Date.now();
+
+                var completedIn = completed - started;
+
+                console.log('completed in ' + completedIn + ' milliseconds.');
+
+                if (completedIn >= T + 3000) return done(new Error('not completed within the specified timeframe of ' + T + ' milliseconds'));
+
+                return done();
+              }
+            }, function (e) {
+
+              if (e) return reject(e);
+
+              console.log('subscribed to handle-job-ok:::');
+
+              resolve();
+            });
+
           });
         });
       })
@@ -147,31 +162,30 @@ describe('happner-elastic-feed-perf-tests', function () {
 
         feedId = feed.id;
 
-        return new Promise(function (resolve) {
-          setTimeout(resolve, 2000);
-        });
-      })
-      .then(function () {
-
         var subscriberMesh = subscriberService.__mesh._mesh;
 
         started = Date.now();
 
-        async.times(N, function(time, timeCB){
+        async.times(N, function (time, timeCB) {
 
           var random = Math.floor(Math.random() * 100).toString();
 
-          subscriberMesh.data.set('/device/1/' + random, {test: random}, function(e){
+          subscriberMesh.data.set('/device/1/' + random, {test: random}, function (e) {
 
             if (e) return timeCB(e);
 
             setJobCount++;
 
+            if (setJobCount % UPDATE_MOD == 0) console.log('set:' + setJobCount.toString() + ' out of ' + N);
+
             timeCB();
 
-          }, function(e){
+          }, function (e) {
+
             if (e && !failedAlready) {
+
               failedAlready = true;
+
               done(e);
             }
           });

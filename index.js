@@ -437,7 +437,7 @@ ElasticFeedService.prototype.stop = function (opts, callback) {
   };
 }
 
-/*convenience service instantiation methods*/
+/* convenience service instantiation methods */
 {
   ElasticFeedService.prototype.queue = function (config) {
 
