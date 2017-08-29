@@ -6,21 +6,31 @@ var Promise = require('bluebird')
   , Worker = require('./lib/worker')
   , Portal = require('./lib/portal/component')
   , Proxy = require('./lib/portal/proxy')
-  , Dashboard = require('./lib/dashboard/component')
   , Queue = require('./lib/queue')
+  , Dashboard = require('./lib/dashboard/component')
   , Service = require('./lib/service')
   , Utilities = require('./lib/utilities')
   , async = require('async')
   , EventEmitter = require('events').EventEmitter
+  , Analyzer = require('./lib/analyze/service')
   ;
 
 function ElasticFeedService(options) {
 
-  this.components = {};
+  var _this = this;
 
-  this._instances = {};
+  _this.components = [];
+
+  _this._instances = {};
 
   if (options == null) options = {};
+
+  if (options.methodDurationMetrics){
+
+    _this.methodAnalyzer = new Analyzer();
+
+    Queue = _this.methodAnalyzer.require('./lib/queue', options.methodDurationMetrics);
+  }
 
   Object.defineProperty(this, '__options', {
     enumerable: true,
@@ -39,7 +49,7 @@ ElasticFeedService.prototype.SERVICE_TYPE = {
   DASHBOARD: 6
 };
 
-ElasticFeedService.prototype.stop = function (opts, callback) {
+ElasticFeedService.prototype.stop = function (opts) {
 
   var _this = this;
 
@@ -300,6 +310,8 @@ ElasticFeedService.prototype.stop = function (opts, callback) {
 
     _this.__attachMetrics(instance);
 
+    _this.components.push(instance);
+
     return instance;
   };
 
@@ -325,7 +337,6 @@ ElasticFeedService.prototype.stop = function (opts, callback) {
         })
         .then(function () {
 
-          _this.components[componentName] = config.modules[componentName].instance;
           return componentNameCB();
         })
         .catch(function (e) {
@@ -418,7 +429,6 @@ ElasticFeedService.prototype.stop = function (opts, callback) {
       }
     });
 
-
     instance.__updateMetric = function (key, subkey, value, $happn) {
 
       if (!this.__metrics[key]) this.__metrics[key] = {};
@@ -441,240 +451,6 @@ ElasticFeedService.prototype.stop = function (opts, callback) {
       });
 
     }.bind(instance);
-
-    instance.__averageTimeStart = function (key) {
-
-      this.__metrics.started[key] = Date.now();
-
-    }.bind(instance);
-
-    instance.__averageTimeEnd = function (key) {
-
-      if (!this.__metrics.counters[key]) this.__metrics.counters[key] = 0;
-
-      if (!this.__metrics.accumulated[key]) this.__metrics.accumulated[key] = 0;
-
-      this.__metrics.counters[key]++;
-
-      this.__metrics.accumulated[key] += Date.now() - this.__metrics.started[key];
-
-      this.__metrics.averages[key] = this.__metrics.accumulated[key] / this.__metrics.counters[key];
-
-    }.bind(instance);
-  };
-
-  ElasticFeedService.prototype.getMetrics = function (options) {
-
-    if (!options) options = {};
-
-    var _this = this;
-
-    var metricInstances = {};
-
-    Object.keys(_this._instances).forEach(function (serviceName) {
-
-      if (!options.serviceName || options.serviceName == serviceName) {
-
-        _this._instances[serviceName].forEach(function (service, serviceInstanceIndex) {
-
-          if (typeof service.instance.metrics == 'function') metricInstances[serviceName + '_' + serviceInstanceIndex] = service.instance;
-        });
-      }
-    });
-
-    var metrics = {};
-
-    return new Promise(function(resolve, reject){
-
-      async.eachSeries(Object.keys(metricInstances), function(metricInstanceKey, metricInstanceKeyCB){
-
-        var metricInstance = metricInstances[metricInstanceKey];
-
-        metricInstance.metrics()
-          .then(function(metricsValues){
-            metrics[metricInstanceKey] = metricsValues;
-            metricInstanceKeyCB();
-          }).catch(metricInstanceKeyCB)
-
-      }, function(e){
-
-        if (e) return reject(e);
-        resolve(metrics);
-      });
-    });
-  };
-
-  ElasticFeedService.prototype.__activateServiceMetrics = function (serviceInstance, serviceName, serviceClass) {
-
-    var _this = this;
-
-    Object.keys(serviceClass.prototype).forEach(function (servicePropertyName) {
-
-      var serviceProperty = serviceInstance[servicePropertyName];
-
-      if (typeof serviceProperty == 'function') {
-
-        var methodString = serviceProperty.toString();
-
-        var analyzeDirectiveStart = methodString.indexOf(':analyzable:');
-
-        if (analyzeDirectiveStart > -1) {
-
-          var analyzeDirectiveEnd = methodString.indexOf(':analyzable-end:');
-
-          var metricsDirective = JSON.parse(methodString.substring(analyzeDirectiveStart + 12, analyzeDirectiveEnd));
-
-          var wrapperBinding = {
-            instance: serviceInstance,
-            serviceName: serviceName,
-            methodName: servicePropertyName,
-            method: serviceProperty,
-            directive: metricsDirective
-          };
-
-          var wrappedMethod;
-
-          if (metricsDirective.promise) {
-
-            console.log('wrapping promise:::');
-
-            //promise method needs to be wrapped
-            wrappedMethod = function () {
-
-              console.log('in wrapped promise:::');
-
-              var _self = this;
-
-              var methodArguments = arguments;
-
-              _self.instance.__averageTimeStart(_self.methodName);
-
-              return new Promise(function (resolve, reject) {
-
-                _self.method.apply(_self.instance, methodArguments)
-
-                  .then(function () {
-
-                    _self.instance.__averageTimeEnd(_self.methodName);
-
-                    resolve.apply(_self.instance, arguments);
-                  })
-                  .catch(reject);
-              });
-
-            }.bind(wrapperBinding)
-
-          } else if (metricsDirective.callback) {
-
-            console.log('wrapping callback:::');
-
-            //async callback needs to be wrapped
-
-            wrappedMethod = function () {
-
-              console.log('in wrapped callback:::');
-
-              var _self = this;
-
-              var methodArguments = arguments;
-
-              _self.instance.__averageTimeStart(_self.methodName);
-
-              if (!_self.directive.callbackIndex) _self.directive.callbackIndex = methodArguments.length - 1; //try last arg
-
-              var callback = methodArguments[_self.directive.callbackIndex];
-
-              if (callback == null || typeof callback != 'function') throw new Error('unable to find wrapped callback, or bad callback type for method ' + _self.methodName + ' in service ' + _self.serviceName);
-
-              var wrappedCallback = function(e){
-
-                if (e) return this.callback(e);
-
-                this._self.instance.__averageTimeEnd(this._self.methodName);
-
-                this.callback(arguments);
-
-              }.bind({callback:callback, _self:_self});
-
-              methodArguments[_self.directive.callbackIndex] = wrappedCallback;
-
-              _self.method.apply(_self.instance, methodArguments);
-
-            }.bind(wrapperBinding)
-
-          } else if (metricsDirective.emit != null) {
-
-            //we expect an emitted event to verify how long things took
-
-            wrappedMethod = function () {
-
-              var _self = this;
-
-              var methodArguments = arguments;
-
-              _self.instance.__averageTimeStart(_self.methodName);
-
-              _self.eventHandler = function(data){
-
-                _self.instance.__averageTimeEnd(_self.methodName);
-
-                //disconnect event
-                _self.instance.off(wrapperBinding.directive.emit, _self.eventHandler);
-              };
-
-              _self.instance.on(wrapperBinding.directive.emit, _self.eventHandler);
-
-              _self.method.apply(_self.instance, methodArguments);
-
-            }.bind(wrapperBinding)
-
-          } else {
-
-            console.log('wrapping synchronous:::');
-
-            //synchronous
-
-            wrappedMethod = function () {
-
-              console.log('in wrapped sync:::');
-
-              var _self = this;
-
-              _self.instance.__averageTimeStart(_self.methodName);
-
-              _self.method.apply(_self.instance, arguments);
-
-              _self.instance.__averageTimeEnd(_self.methodName);
-
-            }.bind(wrapperBinding);
-          }
-
-          serviceInstance[servicePropertyName] = wrappedMethod;
-        }
-      }
-    });
-  };
-
-  ElasticFeedService.prototype.activateMetrics = function (options) {
-
-    if (!options) options = {};
-
-    var _this = this;
-
-    console.log('activate:::', _this._instances);
-
-    Object.keys(_this._instances).forEach(function (serviceName) {
-
-      if (!options.serviceName || options.serviceName == serviceName){
-
-        _this._instances[serviceName].forEach(function (serviceInstance) {
-
-          console.log('__activateServiceMetrics:::', serviceName);
-
-          _this.__activateServiceMetrics(serviceInstance.instance, serviceName, serviceInstance._class);
-        });
-      }
-    });
   };
 }
 
@@ -712,7 +488,7 @@ ElasticFeedService.prototype.stop = function (opts, callback) {
   }
 }
 
-/* convenience service instantiation methods */
+/* service instantiation methods */
 {
   ElasticFeedService.prototype.queue = function (config) {
 

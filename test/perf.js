@@ -73,8 +73,6 @@ describe('happner-elastic-feed-perf-tests', function () {
 
     var startedJobCount = 0;
 
-    var failedAlready = false;
-
     var completedAlready = false;
 
     var started, completed;
@@ -116,14 +114,8 @@ describe('happner-elastic-feed-perf-tests', function () {
 
           emitterService.__mesh.event.emitter.on('handle-job-failed', function (error) {
 
-            if (!failedAlready) {
+            finish(new Error(error.message));
 
-              failedAlready = true;
-
-              console.log('failed: ' + error.message + ', processed so far: ' + completedJobCount + ', submitted so far: ' + setJobCount);
-
-              finish(new Error(error.message));
-            }
           }, function (e) {
 
             if (e) return reject(e);
@@ -253,8 +245,6 @@ describe('happner-elastic-feed-perf-tests', function () {
 
     var startedJobCount = 0;
 
-    var failedAlready = false;
-
     var completedAlready = false;
 
     var started, completed;
@@ -262,7 +252,9 @@ describe('happner-elastic-feed-perf-tests', function () {
     var finish = function (e) {
 
       if (!completedAlready) {
+
         completedAlready = true;
+
         done(e);
       }
     };
@@ -296,14 +288,8 @@ describe('happner-elastic-feed-perf-tests', function () {
 
           emitterService.__mesh.event.emitter.on('handle-job-failed', function (error) {
 
-            if (!failedAlready) {
+            finish(new Error(error.message));
 
-              failedAlready = true;
-
-              console.log('failed: ' + error.message + ', processed so far: ' + completedJobCount + ', submitted so far: ' + setJobCount);
-
-              finish(new Error(error.message));
-            }
           }, function (e) {
 
             if (e) return reject(e);
@@ -387,11 +373,11 @@ describe('happner-elastic-feed-perf-tests', function () {
 
     this.timeout(T + 5000);
 
-    var queueService = new Service({activateMetrics: true});
+    var queueService = new Service({methodDurationMetrics: true});
 
-    var subscriberService = new Service({activateMetrics: true});
+    var subscriberService = new Service({methodDurationMetrics: true});
 
-    var emitterService = new Service({activateMetrics: true});
+    var emitterService = new Service({methodDurationMetrics: true});
 
     var feedRandomName = uuid.v4();
 
@@ -441,34 +427,28 @@ describe('happner-elastic-feed-perf-tests', function () {
 
     var startedJobCount = 0;
 
-    var failedAlready = false;
-
     var completedAlready = false;
 
     var started, completed;
 
     var finish = function (e) {
 
-      console.log('finishing:::', completedAlready);
-
       if (!completedAlready) {
 
         completedAlready = true;
 
-        subscriberService.getMetrics()
-          .then(function (subscriberMetrics) {
-            console.log('subscriber metrics:::', subscriberMetrics);
-            return emitterService.getMetrics();
-          })
-          .then(function (emitterMetrics) {
-            console.log('emitter metrics:::', emitterMetrics);
-            return queueService.getMetrics();
-          })
-          .then(function (queueMetrics) {
-            console.log('queue metrics:::', queueMetrics);
-            done();
-          })
-          .catch(done);
+        if (e) {
+
+          if (e && !e.message) e = new Error(e.toString());
+
+          return done(e);
+        }
+
+        var queueAnalytics = queueService.methodAnalyzer.getAnalysis();
+
+        console.log('queueAnalytics:::', queueAnalytics);
+
+        done();
       }
     };
 
@@ -501,14 +481,8 @@ describe('happner-elastic-feed-perf-tests', function () {
 
           emitterService.__mesh.event.emitter.on('handle-job-failed', function (error) {
 
-            if (!failedAlready) {
+            finish(new Error(error.message));
 
-              failedAlready = true;
-
-              console.log('failed: ' + error.message + ', processed so far: ' + completedJobCount + ', submitted so far: ' + setJobCount);
-
-              finish(new Error(error.message));
-            }
           }, function (e) {
 
             if (e) return reject(e);

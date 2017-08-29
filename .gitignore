@@ -26,4 +26,6 @@ test/private/*
 
 coverage/*
 
+*.analyzed.js
+
 .DS_Store
