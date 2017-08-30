@@ -4,7 +4,6 @@ var Promise = require('bluebird')
   , Subscriber = require('./lib/subscriber')
   , Feed = require('./lib/feed/component')
   , Worker = require('./lib/worker')
-  , Portal = require('./lib/portal/component')
   , Proxy = require('./lib/portal/proxy')
   , Queue = require('./lib/queue')
   , Dashboard = require('./lib/dashboard/component')
@@ -29,7 +28,14 @@ function ElasticFeedService(options) {
 
     _this.methodAnalyzer = new Analyzer();
 
-    Queue = _this.methodAnalyzer.require('./lib/queue', options.methodDurationMetrics);
+    Queue = _this.methodAnalyzer.require('./lib/queue', true);
+    Emitter = _this.methodAnalyzer.require('./lib/emitter', true);
+    Subscriber = _this.methodAnalyzer.require('./lib/subscriber', true);
+    Feed = _this.methodAnalyzer.require('./lib/feed/component', true);
+    Worker = _this.methodAnalyzer.require('./lib/worker', true);
+    Proxy = _this.methodAnalyzer.require('./lib/portal/proxy', true);
+    Service = _this.methodAnalyzer.require('./lib/service', true);
+    Dashboard = _this.methodAnalyzer.require('./lib/dashboard/component', true);
   }
 
   Object.defineProperty(this, '__options', {
@@ -38,16 +44,6 @@ function ElasticFeedService(options) {
     value: options
   });
 }
-
-ElasticFeedService.prototype.SERVICE_TYPE = {
-  QUEUE: 0,
-  PORTAL: 1,
-  WORKER: 2,
-  SUBSCRIBER: 3,
-  EMITTER: 4,
-  PROXY: 5,
-  DASHBOARD: 6
-};
 
 ElasticFeedService.prototype.stop = function (opts) {
 
@@ -383,9 +379,7 @@ ElasticFeedService.prototype.stop = function (opts) {
 
       var serviceClassName = serviceClass.name;
 
-      var serviceClassType = _this.SERVICE_TYPE[serviceClassName.toUpperCase()];
-
-      if (serviceClassType == null) return reject(new Error('unknown service class type: SERVICE_TYPE.' + serviceClassName.toUpperCase()));
+      //TODO: rather have config parser enclosed in service class, so we can inject dependancies
 
       var serviceConfigParse = _this['__parse' + serviceClassName + 'Config'];
 

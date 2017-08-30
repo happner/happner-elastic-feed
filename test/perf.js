@@ -1,4 +1,4 @@
-describe('happner-elastic-feed-perf-tests', function () {
+describe('happner-elastic-feed-performance-tests', function () {
 
   this.timeout(5000);
 
@@ -82,8 +82,25 @@ describe('happner-elastic-feed-perf-tests', function () {
     var finish = function (e) {
 
       if (!completedAlready) {
+
         completedAlready = true;
-        done(e);
+
+        emitterService.stop()
+          .then(function(){
+            return queueService.stop();
+          })
+          .then(function(){
+            return subscriberService.stop();
+          })
+          .then(function(){
+            done(e);
+          })
+          .catch(function(stopError){
+
+            console.warn('failed stopping services:::', stopError.toString());
+
+            done(e);
+          });
       }
     };
 
@@ -130,8 +147,6 @@ describe('happner-elastic-feed-perf-tests', function () {
 
                 if (completedAlready) return;
 
-                completedAlready = true;
-
                 completed = Date.now();
 
                 var completedIn = completed - started;
@@ -145,8 +160,6 @@ describe('happner-elastic-feed-perf-tests', function () {
             }, function (e) {
 
               if (e) return reject(e);
-
-              console.log('subscribed to handle-job-ok:::');
 
               resolve();
             });
@@ -255,7 +268,22 @@ describe('happner-elastic-feed-perf-tests', function () {
 
         completedAlready = true;
 
-        done(e);
+        emitterService.stop()
+          .then(function(){
+            return queueService.stop();
+          })
+          .then(function(){
+            return subscriberService.stop();
+          })
+          .then(function(){
+            done(e);
+          })
+          .catch(function(stopError){
+
+            console.warn('failed stopping services:::', stopError.toString());
+
+            done(e);
+          });
       }
     };
 
@@ -304,8 +332,6 @@ describe('happner-elastic-feed-perf-tests', function () {
 
                 if (completedAlready) return;
 
-                completedAlready = true;
-
                 completed = Date.now();
 
                 var completedIn = completed - started;
@@ -319,8 +345,6 @@ describe('happner-elastic-feed-perf-tests', function () {
             }, function (e) {
 
               if (e) return reject(e);
-
-              console.log('subscribed to handle-job-ok:::');
 
               resolve();
             });
@@ -363,13 +387,13 @@ describe('happner-elastic-feed-perf-tests', function () {
 
   });
 
-  var METRICS_N = 20;
+  var METRICS_N = 1000;
 
-  var METRICS_T = 10000;
+  var METRICS_T = 30000;
 
-  var METRICS_UPDATE_MOD = 5;
+  var METRICS_UPDATE_MOD = 100;
 
-  it.only('does ' + METRICS_N + ' or more jobs in ' + METRICS_T + ' milliseconds with activateMetrics', function (done) {
+  it('does ' + METRICS_N + ' or more jobs in ' + METRICS_T + ' milliseconds with activateMetrics', function (done) {
 
     this.timeout(T + 5000);
 
@@ -440,15 +464,30 @@ describe('happner-elastic-feed-perf-tests', function () {
         if (e) {
 
           if (e && !e.message) e = new Error(e.toString());
-
-          return done(e);
         }
 
         var queueAnalytics = queueService.methodAnalyzer.getAnalysis();
 
-        console.log('queueAnalytics:::', queueAnalytics);
+        console.log('performance analytics:::', queueAnalytics);
 
-        done();
+        queueService.methodAnalyzer.cleanup();
+
+        emitterService.stop()
+          .then(function(){
+            return queueService.stop();
+          })
+          .then(function(){
+            return subscriberService.stop();
+          })
+          .then(function(){
+            done(e);
+          })
+          .catch(function(stopError){
+
+            console.warn('failed stopping services:::', stopError.toString());
+
+            done(e);
+          });
       }
     };
 
@@ -510,8 +549,6 @@ describe('happner-elastic-feed-perf-tests', function () {
             }, function (e) {
 
               if (e) return reject(e);
-
-              console.log('subscribed to handle-job-ok:::');
 
               resolve();
             });
