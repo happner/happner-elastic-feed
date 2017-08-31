@@ -8,7 +8,7 @@ describe('happner-elastic-feed-functional-tests', function () {
 
   var request = require('request');
 
-  var Queue = require('../lib/queue');
+  var Queue = require('../lib/components/queue');
 
   var fs = require('fs');
 
@@ -22,7 +22,7 @@ describe('happner-elastic-feed-functional-tests', function () {
 
       var service = new Service();
 
-      var queue = service.__instantiateServiceInstance(Queue, {
+      var queue = service.instantiateServiceInstance(Queue, {
         queue: {
           kue: {prefix: 'test-1'},
           jobTypes: {
@@ -214,11 +214,11 @@ describe('happner-elastic-feed-functional-tests', function () {
 
     it('tests dropping a worker and transferring jobs to a different one', function (done) {
 
-      this.timeout(10000);
+      this.timeout(15000);
 
       var service = new Service();
 
-      var queue = service.__instantiateServiceInstance(Queue, {
+      var queue = service.instantiateServiceInstance(Queue, {
         queue: {
           kue: {prefix: 'test-1'},
           jobTypes: {
@@ -398,7 +398,7 @@ describe('happner-elastic-feed-functional-tests', function () {
 
       var service = new Service();
 
-      var queue = service.__instantiateServiceInstance(Queue, queueConfig);
+      var queue = service.instantiateServiceInstance(Queue, queueConfig);
 
       var attached1 = null;
 

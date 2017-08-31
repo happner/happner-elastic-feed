@@ -23,15 +23,49 @@ git clone https://github.com/happner/elastic-feed.git && cd elastic-feed && npm 
 ```
 
 ### multiple happner instances:
-1: queue -
-2. subscriber -
-3. emitter -
-4. portal -
+1: queue - uses [kue](https://github.com/Automattic/kue) as the basis for jobs and batches
+2. subscriber - subscribes to * on the production happner environment, pushes jobs into the queue
+3. emitter -receives emit jobs submitted by subscriber pushes jobs to the elastic service
+4. portal - TBD
+5. proxy - transparent proxy between kibana and elasticsearch, checks incoming requests are in line with users permissions, also has authenticate method for dashboard
 
 ### detailed premise for this architecture
 
-#### system is a collection of happner components:
+system a factory or builder with a collection of happner components, that can be appended depending on what services need to be run.
+
+for detailed end-to-end use, please look at the sanity tests.
+
+running the whole system as a service:
+
+```bash
+
+```
+
+```javascript
+
+
+
+```
+
+running just one component (in this case the feed component) in an existing mesh:
+
+```bash
+
+```
+
+```javascript
+
+```
+
 
 Happner setup instructions in more detail [here](https://github.com/happner/happner/blob/master/docs/walkthrough/the-basics.md).
 
 ### performance testing and the analyzer service:
+
+TBD
+
+### TODOS:
+
+- use jobs without batches to increase performance
+- no longer create a new index for every feed
+- create proxy with permissions check

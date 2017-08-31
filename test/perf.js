@@ -10,15 +10,15 @@ describe('happner-elastic-feed-performance-tests', function () {
 
   var uuid = require('uuid');
 
-  var N = 1000;
+  var N = 100;
 
-  var T = 30000;
+  var T = 10000;
 
-  var UPDATE_MOD = 100;
+  var UPDATE_MOD = 10;
 
   it('does ' + N + ' or more jobs in ' + T + ' milliseconds', function (done) {
 
-    this.timeout(T + 5000);
+    this.timeout(T + 10000);
 
     var queueService = new Service();
 
@@ -86,16 +86,16 @@ describe('happner-elastic-feed-performance-tests', function () {
         completedAlready = true;
 
         emitterService.stop()
-          .then(function(){
+          .then(function () {
             return queueService.stop();
           })
-          .then(function(){
+          .then(function () {
             return subscriberService.stop();
           })
-          .then(function(){
+          .then(function () {
             done(e);
           })
-          .catch(function(stopError){
+          .catch(function (stopError) {
 
             console.warn('failed stopping services:::', stopError.toString());
 
@@ -203,7 +203,7 @@ describe('happner-elastic-feed-performance-tests', function () {
 
   it('does ' + N + ' or more jobs in ' + T + ' milliseconds with data caching switched on (needs redis)', function (done) {
 
-    this.timeout(T + 5000);
+    this.timeout(T + 10000);
 
     var queueService = new Service({dataCache: true});
 
@@ -269,16 +269,16 @@ describe('happner-elastic-feed-performance-tests', function () {
         completedAlready = true;
 
         emitterService.stop()
-          .then(function(){
+          .then(function () {
             return queueService.stop();
           })
-          .then(function(){
+          .then(function () {
             return subscriberService.stop();
           })
-          .then(function(){
+          .then(function () {
             done(e);
           })
-          .catch(function(stopError){
+          .catch(function (stopError) {
 
             console.warn('failed stopping services:::', stopError.toString());
 
@@ -387,15 +387,15 @@ describe('happner-elastic-feed-performance-tests', function () {
 
   });
 
-  var METRICS_N = 1000;
+  var METRICS_N = 100;
 
-  var METRICS_T = 30000;
+  var METRICS_T = 10000;
 
-  var METRICS_UPDATE_MOD = 100;
+  var METRICS_UPDATE_MOD = 10;
 
   it('does ' + METRICS_N + ' or more jobs in ' + METRICS_T + ' milliseconds with activateMetrics', function (done) {
 
-    this.timeout(T + 5000);
+    this.timeout(T + 10000);
 
     var queueService = new Service({methodDurationMetrics: true});
 
@@ -468,23 +468,21 @@ describe('happner-elastic-feed-performance-tests', function () {
 
         var queueAnalytics = queueService.methodAnalyzer.getAnalysis();
 
-        console.log('performance analytics:::', queueAnalytics);
+        console.log('analysis:::', queueAnalytics);
 
         queueService.methodAnalyzer.cleanup();
 
         emitterService.stop()
-          .then(function(){
+          .then(function () {
             return queueService.stop();
           })
-          .then(function(){
+          .then(function () {
             return subscriberService.stop();
           })
-          .then(function(){
+          .then(function () {
             done(e);
           })
-          .catch(function(stopError){
-
-            console.warn('failed stopping services:::', stopError.toString());
+          .catch(function (stopError) {
 
             done(e);
           });

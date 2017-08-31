@@ -8,8 +8,6 @@ describe('happner-elastic-feed-sanity-tests', function () {
 
   var request = require('request');
 
-  var Queue = require('../lib/queue');
-
   var fs = require('fs');
 
   var uuid = require('uuid');
@@ -18,7 +16,7 @@ describe('happner-elastic-feed-sanity-tests', function () {
 
     it('starts up and stops an elastic emitter mesh', function (done) {
 
-      this.timeout(5000);
+      this.timeout(10000);
 
       var service = new Service();
 
@@ -26,6 +24,7 @@ describe('happner-elastic-feed-sanity-tests', function () {
 
       var queueConfig = {
         queue: {
+          stopTimeout:2000,
           jobTypes: {
             "subscriber": {concurrency: 10},
             "emitter": {concurrency: 10}
@@ -47,7 +46,7 @@ describe('happner-elastic-feed-sanity-tests', function () {
           return service.stop();
         })
         .then(function () {
-          setTimeout(done, 3000);
+          done();
         })
         .catch(done);
     });
@@ -299,6 +298,65 @@ describe('happner-elastic-feed-sanity-tests', function () {
         .catch(done);
     });
 
+    it('tests starting the feed component in an independant mesh', function (done) {
+
+      var config = {};
+
+      if (!config.data) config.data = {};
+
+      if (!config.data.port) config.data.port = 55000;
+
+      if (!config.name)  config.name = 'happner-elastic-feed';
+
+      var feedFactory = new Service();
+
+      var hapnnerConfig = {
+        name: config.name,
+        happn: {
+          port: config.data.port,
+          secure: true
+        },
+        modules: {
+          "feed": {
+            instance: feedFactory.instantiateServiceInstance(feedFactory.Feed)
+          }
+        },
+        components: {
+          "feed": {
+            startMethod: "initialize",
+            stopMethod: "stop",
+            accessLevel: "mesh"
+          }
+        }
+      };
+
+      var Mesh = require('happner-2');
+
+      Mesh.create(hapnnerConfig, function (err, instance) {
+
+        if (err) return done(err);
+
+        var feedRandomName = uuid.v4();
+
+        var feedData = {
+          action: 'create',
+          name: 'Test feed ' + feedRandomName,
+          datapaths: [
+            '/test/path/1/*',
+            '/device/2/*',
+            '/device/3/*'
+          ]
+        };
+
+        instance.exchange.feed.upsert(feedData)
+          .then(function (upserted) {
+            //TODO://verify the upserted feed
+
+            instance.stop({}, done);
+          })
+          .catch(done);
+      });
+    });
   });
 
   context('subscriber and emitter services', function () {
@@ -394,10 +452,10 @@ describe('happner-elastic-feed-sanity-tests', function () {
                 if (pushedCount == 5) {
 
                   emitterService.stop()
-                    .then(function(){
+                    .then(function () {
                       return subscriberService.stop();
                     })
-                    .then(function(){
+                    .then(function () {
                       return queueService.stop();
                     })
                     .then(done)
@@ -457,20 +515,20 @@ describe('happner-elastic-feed-sanity-tests', function () {
         .catch(done);
     });
 
-    it ('tests the emitter push of the data to the feed', function (done) {
+    it('tests the emitter push of the data to the feed', function (done) {
 
       this.timeout(20000);
 
       var service = new Service();
 
-      var feed = service.__instantiateServiceInstance(require('../lib/emitter'));
+      var feed = service.instantiateServiceInstance(require('../lib/components/emitter'));
 
       var setData = [];
 
       var mockFeedId = uuid.v4() + uuid.v4();
 
       var mockJob = {
-        jobType:'emitter',
+        jobType: 'emitter',
         batchId: 1,
         data: {
           id: mockFeedId
@@ -505,7 +563,7 @@ describe('happner-elastic-feed-sanity-tests', function () {
               });
             },
 
-            jobComplete : function(job, message){
+            jobComplete: function (job, message) {
 
               return new Promise(function (resolve) {
 
@@ -644,35 +702,35 @@ describe('happner-elastic-feed-sanity-tests', function () {
 
               if (completedJobCount == 6) {
 
-                emitterService.__mesh._mesh.data.get('/happner-feed-data/' + feedId + '/emitter/*', function(e, results){
+                emitterService.__mesh._mesh.data.get('/happner-feed-data/' + feedId + '/emitter/*', function (e, results) {
 
                   if (e) return done(e);
 
                   expect(results.length).to.be(3);
 
-                  expect(['1','2','3'].indexOf(results[0].test) > -1).to.be(true);
+                  expect(['1', '2', '3'].indexOf(results[0].test) > -1).to.be(true);
 
-                  expect(['1','2','3'].indexOf(results[1].test) > -1).to.be(true);
+                  expect(['1', '2', '3'].indexOf(results[1].test) > -1).to.be(true);
 
-                  expect(['1','2','3'].indexOf(results[2].test) > -1).to.be(true);
+                  expect(['1', '2', '3'].indexOf(results[2].test) > -1).to.be(true);
 
-                  emitterService.__mesh._mesh.data.get('/happner-feed-data/' + anotherFeedId + '/emitter/*', function(e, results){
+                  emitterService.__mesh._mesh.data.get('/happner-feed-data/' + anotherFeedId + '/emitter/*', function (e, results) {
 
                     if (e) return done(e);
 
                     expect(results.length).to.be(3);
 
-                    expect(['11','12','13'].indexOf(results[0].test) > -1).to.be(true);
+                    expect(['11', '12', '13'].indexOf(results[0].test) > -1).to.be(true);
 
-                    expect(['11','12','13'].indexOf(results[1].test) > -1).to.be(true);
+                    expect(['11', '12', '13'].indexOf(results[1].test) > -1).to.be(true);
 
-                    expect(['11','12','13'].indexOf(results[2].test) > -1).to.be(true);
+                    expect(['11', '12', '13'].indexOf(results[2].test) > -1).to.be(true);
 
                     emitterService.stop()
-                      .then(function(){
+                      .then(function () {
                         return subscriberService.stop();
                       })
-                      .then(function(){
+                      .then(function () {
                         return queueService.stop();
                       })
                       .then(done)
