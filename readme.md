@@ -106,7 +106,7 @@ service
 
 ```
 
-running just one component (in this case the feed component) in an existing mesh:
+####running just one component (in this case the feed component) in an existing mesh:
 
 ```bash
 
@@ -177,7 +177,7 @@ instance.exchange.feed.upsert(feedData)
 
 ```
 
-running the proxy component:
+####running the proxy component:
 
 ```bash
 
