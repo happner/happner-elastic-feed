@@ -356,7 +356,9 @@ describe('happner-elastic-feed-sanity-tests', function () {
           })
           .catch(done);
       });
+      
     });
+    
   });
 
   context('subscriber and emitter services', function () {

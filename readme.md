@@ -4,11 +4,19 @@ happner elastic feed
 
 ### prerequisites:
 
-#### [elasticsearch 5.4](https://www.elastic.co/blog/elasticsearch-5-4-0-released)
+### just feeds:
 
-#### [kibana 5.4](https://www.elastic.co/blog/kibana-5-4-0-released)
+node v7+
 
-#### [redis server](https://redis.io/topics/quickstart)
+npm
+
+#### whole system needs feeds prerequisites and:
+
+##### [elasticsearch 5.4](https://www.elastic.co/blog/elasticsearch-5-4-0-released)
+
+##### [kibana 5.4](https://www.elastic.co/blog/kibana-5-4-0-released)
+
+##### [redis server](https://redis.io/topics/quickstart)
 
 ### installation instructions:
 
@@ -33,16 +41,67 @@ git clone https://github.com/happner/elastic-feed.git && cd elastic-feed && npm 
 
 system a factory or builder with a collection of happner components, that can be appended depending on what services need to be run.
 
-for detailed end-to-end use, please look at the sanity tests.
+for detailed end-to-end use, please look at the [sanity tests.](https://github.com/happner/happner-elastic-feed/blob/master/test/sanity.js)
 
 running the whole system as a service:
 
 ```bash
 
+npm i happner-elastic-feed --save
+
 ```
 
 ```javascript
 
+var Service = require('happner-elastic-feed');
+
+var service = new Service();
+
+var queueConfig = {
+queue: {
+  jobTypes: {
+    "emitter": {concurrency: 10}
+  }
+}
+};
+
+var subscriberConfig = {};
+
+var subscriberWorkerConfig = {
+name: 'happner-emitter-worker',
+queue: {username: '_ADMIN', password: 'happn', port: 55000, jobTypes: ["feed"]},
+data: {
+  port: 55001
+}
+};
+
+var emitterWorkerConfig = {
+name: 'happner-emitter-worker',
+queue: {username: '_ADMIN', password: 'happn', port: 55000, jobTypes: ["emitter"]},
+data: {
+  port: 55002
+}
+};
+
+service
+.queue(queueConfig)
+.then(function () {
+  return service.worker(subscriberWorkerConfig);
+})
+.then(function () {
+  return service.worker(emitterWorkerConfig);
+})
+.then(function () {
+  return service.emitter(emitterWorkerConfig);
+})
+.then(function () {
+  return service.subscriber(subscriberConfig);
+})
+.then(function () {
+
+//we now have a mesh that has all the components necessary to create feeds and transfer data from the production environment to the feeds warehouse
+
+});
 
 
 ```
@@ -51,9 +110,70 @@ running just one component (in this case the feed component) in an existing mesh
 
 ```bash
 
+npm i happner-elastic-feed --save
+
 ```
 
 ```javascript
+
+var Service = require('happner-elastic-feed');
+
+var config = {};
+
+if (!config.data) config.data = {};
+
+if (!config.data.port) config.data.port = 55000;
+
+if (!config.name)  config.name = 'happner-elastic-feed';
+
+var feedFactory = new Service();
+
+var hapnnerConfig = {
+name: config.name,
+happn: {
+  port: config.data.port,
+  secure: true
+},
+modules: {
+  "feed": {
+    instance: feedFactory.instantiateServiceInstance(feedFactory.Feed)
+  }
+},
+components: {
+  "feed": {
+    startMethod: "initialize",
+    stopMethod: "stop",
+    accessLevel: "mesh"
+  }
+}
+};
+
+var Mesh = require('happner-2');
+
+Mesh.create(hapnnerConfig, function (err, instance) {
+
+if (err) return done(err);
+
+var feedRandomName = uuid.v4();
+
+var feedData = {
+  action: 'create',
+  name: 'Test feed ' + feedRandomName,
+  datapaths: [
+    '/test/path/1/*',
+    '/device/2/*',
+    '/device/3/*'
+  ]
+};
+
+instance.exchange.feed.upsert(feedData)
+  .then(function (upserted) {
+    //TODO://verify the upserted feed
+
+    instance.stop({}, done);
+  })
+  .catch(done);
+});
 
 ```
 
@@ -62,10 +182,90 @@ Happner setup instructions in more detail [here](https://github.com/happner/happ
 
 ### performance testing and the analyzer service:
 
-TBD
+have not separated this into its own module yet, but this analyzer allows us to add tags to our methods and then report on the average time it takes for the method to execute, this produces an output that is much easier to use than a flame graph.
+Tags are special comments that mark where you want to start measuring average function time, and where you want to end measuring (promise.resolve, callback or sync return)
+
+Example of tagged method:
+
+```javascript
+
+//[start:{"key":"initialize", "self":"_this"}:start]
+
+function initialize($happn) {
+
+  var _this = this;
+
+  //[start:{"key":"initialize", "self":"_this"}:start]
+
+  return new Promise(function (resolve, reject) {
+
+    _this
+      .__connectQueue($happn)
+      .then(function () {
+        return _this.__connectFeeds($happn);
+      })
+      .then(function () {
+        return _this.__subscribe($happn);
+      })
+      .then(function (result) {
+        //[end:{"key":"initialize", "self":"_this"}:end]
+        resolve(result);
+      })
+      .catch(function (e) {
+        //[end:{"key":"initialize", "self":"_this", "error":"e"}:end]
+        reject(e);
+      });
+  });
+}
+
+```
+
+the output tree, in the format Class/Method/[Average time spent] in milliseconds looks like this:
+
+```javascript
+{ Queue:
+   { __connect: 1,
+     listen: 0,
+     initialize: 1,
+     unAssignJobs: 0,
+     reAssignJobs: 0,
+     attach: 0.5,
+     emit: 8.55,
+     __storeNewBatch: 2.38,
+     createBatch: 3.35,
+     getBatch: 1.825,
+     __validateJobBatch: 0.01,
+     __updateJobBatch: 2.1,
+     __saveNewJob: 8.71,
+     __serializeJob: 0.013333333333333334,
+     createJob: 12.26,
+     getLeastBusyWorker: 0.01,
+     __updateStateMetric: 0.03,
+     __assignJob: 0.05,
+     pop: 0.0891089108910891,
+     updateBatch: 5.38,
+     getBusyJob: 0,
+     findWorker: 0.005,
+     __removeBusyJob: 0.05,
+     updateBusyJob: 0.44,
+     __cleanupJobDB: 3.98 },
+  Subscriber:
+   { __connectFeeds: 2,
+     __subscribe: 1,
+     initialize: 3,
+     __updateFeed: 0,
+     __createJobs: 0,
+     __persistBatch: 141.62,
+     __persistBatches: 141.71 } }
+```
+
+You start your service with methodDurationMetrics: true, to get an analysis of tagged methods, see the [perf test](https://github.com/happner/happner-elastic-feed/blob/master/test/perf.js#L396) to understand how to do this.
+
+###NB: please dont remove tag comments as they will be used to guide us in future optimisations.
 
 ### TODOS:
 
+- finish performance analysis tagging
 - use jobs without batches to increase performance
 - no longer create a new index for every feed
 - create proxy with permissions check
