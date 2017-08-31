@@ -43,7 +43,7 @@ system a factory or builder with a collection of happner components, that can be
 
 for detailed end-to-end use, please look at the [sanity tests.](https://github.com/happner/happner-elastic-feed/blob/master/test/sanity.js)
 
-running the whole system as a service:
+#### running the whole system as a service:
 
 ```bash
 
@@ -106,7 +106,7 @@ service
 
 ```
 
-####running just one component (in this case the feed component) in an existing mesh:
+#### running just one component (in this case the feed component) in an existing mesh:
 
 ```bash
 
@@ -177,7 +177,7 @@ instance.exchange.feed.upsert(feedData)
 
 ```
 
-####running the proxy component:
+#### running the proxy component:
 
 ```bash
 
