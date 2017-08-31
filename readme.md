@@ -177,6 +177,65 @@ instance.exchange.feed.upsert(feedData)
 
 ```
 
+running the proxy component:
+
+```bash
+
+npm i happner-elastic-feed --save
+
+```
+
+```javascript
+
+//starts the proxy service, we test pushing requests through it to elasticsearch, default listen port 55555 and target http://localhost:9200
+
+var Service = require('happner-elastic-feed');
+
+var proxyConfig = {};
+
+var proxyService = new Service();
+
+var http = require('http');
+
+proxyService
+
+    .proxy(proxyConfig)
+
+    .then(function () {
+
+      http.get({
+        host: 'localhost',
+        port: 55555,
+        path: '/_cat/indices?v'
+      }, function(res) {
+
+        var body = '';
+
+        res.on('data', function(chunk) {
+          body += chunk;
+        });
+
+        res.on('end', function() {
+
+          console.log('successfully queried :::', body);
+
+          proxyService.stop()
+            .then(function(){
+              done();
+            })
+            .catch(done)
+        });
+
+      }).on('error', function(e) {
+        done(e);
+      });
+    })
+    .catch(function(e){
+      done(e);
+    })
+
+
+```
 
 Happner setup instructions in more detail [here](https://github.com/happner/happner/blob/master/docs/walkthrough/the-basics.md).
 

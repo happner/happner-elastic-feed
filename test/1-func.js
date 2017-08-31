@@ -664,5 +664,51 @@ describe('happner-elastic-feed-functional-tests', function () {
 
   context('portal & proxy', function () {
 
+    it('starts the proxy service, we test pushing requests through it to elasticsearch, using default listen port 55555 target http://localhost:9200', function(done){
+
+      var proxyService = new Service();
+
+      var proxyConfig = {};
+
+      var http = require('http');
+
+      proxyService
+
+        .proxy(proxyConfig)
+
+        .then(function () {
+
+          http.get({
+            host: 'localhost',
+            port: 55555,
+            path: '/_cat/indices?v'
+          }, function(res) {
+
+            var body = '';
+
+            res.on('data', function(chunk) {
+              body += chunk;
+            });
+
+            res.on('end', function() {
+
+              console.log('successfully queried :::', body);
+
+              proxyService.stop()
+                .then(function(){
+                  done();
+                })
+                .catch(done)
+            });
+
+          }).on('error', function(e) {
+            done(e);
+          });
+        })
+        .catch(function(e){
+          done(e);
+        })
+
+    });
   });
 });
