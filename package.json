@@ -1,12 +1,12 @@
 {
   "name": "happner-elastic-feed",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "main": "lib/index.js",
   "scripts": {
     "test": "mocha silence.js test",
-    "test-func": "mocha silence.js test/func.js",
-    "test-sanity": "mocha silence.js test/sanity.js",
-    "test-perf": "mocha silence.js test/perf.js",
+    "test-func": "mocha silence.js test/1-func.js",
+    "test-sanity": "mocha silence.js test/2-sanity.js",
+    "test-perf": "mocha silence.js test/3-perf.js",
     "test-analyzer": "mocha silence.js test/analyzer/*"
   },
   "devDependencies": {

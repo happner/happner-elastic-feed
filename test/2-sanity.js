@@ -68,7 +68,7 @@ describe('happner-elastic-feed-sanity-tests', function () {
 
     it('starts up and stops an elastic a subscriber mesh', function (done) {
 
-      this.timeout(5000);
+      this.timeout(15000);
 
       var service = new Service();
 
@@ -143,6 +143,8 @@ describe('happner-elastic-feed-sanity-tests', function () {
 
     it('attaches 2 workers via the mesh, gets emitted jobs', function (done) {
 
+      this.timeout(15000);
+
       var queueService = new Service();
 
       var worker1Service = new Service();
@@ -155,6 +157,7 @@ describe('happner-elastic-feed-sanity-tests', function () {
 
       var queueConfig = {
         queue: {
+          kue: {prefix: 'workers-test'},
           jobTypes: {
             "subscriber": {concurrency: 10},
             "emitter": {concurrency: 10}
