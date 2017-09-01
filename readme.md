@@ -237,7 +237,7 @@ proxyService
 
 ```
 
-for detailed proxy usage [have a look at the tests]().
+for detailed proxy usage [have a look at the tests](https://github.com/happner/happner-elastic-feed/blob/master/test/1-func.js#L671).
 
 Happner setup instructions in more detail [here](https://github.com/happner/happner/blob/master/docs/walkthrough/the-basics.md).
 
