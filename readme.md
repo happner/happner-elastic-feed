@@ -21,13 +21,14 @@ npm
 ### installation instructions:
 
 ```bash
+
 #install deps
 npm install happner-elastic-feed
 #test run
 npm test
 
 run the service locally:
-git clone https://github.com/happner/elastic-feed.git && cd elastic-feed && npm install && node service/start
+git clone https://github.com/happner/happner-elastic-feed.git && cd happner-elastic-feed && npm install && node service/start
 ```
 
 ### multiple happner instances:
@@ -176,8 +177,30 @@ instance.exchange.feed.upsert(feedData)
 });
 
 ```
+#### running the proxy service:
 
-#### running the proxy component:
+##### assuming kibana and elasticsearch is on the same machine, and we have all the prerequisites installed:
+
+1. modify kibana.yml:
+
+```vi
+
+elasticsearch.url: "http://localhost:55555"
+
+```
+2. download and run the feeds service as a proxy:
+
+```bash
+
+> git clone https://github.com/happner/happner-elastic-feed.git && cd happner-elastic-feed && npm install
+
+> node service/start proxy
+
+```
+
+3. navigate to http://localhost:5601/app/kibana and check proxy-ing is working.
+
+#### running the proxy as a component:
 
 ```bash
 
