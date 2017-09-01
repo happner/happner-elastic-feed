@@ -237,6 +237,8 @@ proxyService
 
 ```
 
+for detailed proxy usage [have a look at the tests]().
+
 Happner setup instructions in more detail [here](https://github.com/happner/happner/blob/master/docs/walkthrough/the-basics.md).
 
 ### performance testing and the analyzer service:
