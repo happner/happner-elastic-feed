@@ -468,8 +468,6 @@ describe('happner-elastic-feed-performance-tests', function () {
 
         var queueAnalytics = queueService.methodAnalyzer.getAnalysis();
 
-        console.log('analysis:::', queueAnalytics);
-
         queueService.methodAnalyzer.cleanup();
 
         emitterService.stop()

@@ -14,6 +14,12 @@ describe('happner-elastic-feed-functional-tests', function () {
 
   var uuid = require('uuid');
 
+  var TestUtilities = require('./fixtures/utilities');
+
+  var testUtils = new TestUtilities();
+
+  var Mesh = require('happner-2');
+
   context('queue', function () {
 
     it('tests the queue functions', function (done) {
@@ -664,13 +670,35 @@ describe('happner-elastic-feed-functional-tests', function () {
 
   context('portal & proxy', function () {
 
-    it('starts the proxy service, we test pushing requests through it to elasticsearch, using default listen port 55555 target http://localhost:9200', function(done){
+    it('starts the proxy service, log in with the _ADMIN account, get the happn_token, then call the authDashboards web method to get available dashboards.', function (done) {
 
       var proxyService = new Service();
 
-      var proxyConfig = {};
+      var proxyConfig = {
+        proxy: {
+          dashboardListAuthorizedHandler: function (req, res, next, $happn, $origin) {
 
-      var http = require('http');
+            //console.log('auth-dashboards called:::', req.url);
+
+            res.end(JSON.stringify({dashboards:[]}));
+          },
+          proxyHandler: function (proxyReq, req, res, options) {
+
+            //console.log('proxy-request called:::', req.url);
+          }
+        }
+      };
+
+      var events = {};
+
+      var finish = function(e){
+
+        done(e);
+      };
+
+      var proxyMesh;
+
+      var adminClient = new Mesh.MeshClient({secure: true});
 
       proxyService
 
@@ -678,37 +706,140 @@ describe('happner-elastic-feed-functional-tests', function () {
 
         .then(function () {
 
-          http.get({
-            host: 'localhost',
-            port: 55555,
-            path: '/_cat/indices?v'
-          }, function(res) {
+          proxyMesh = proxyService.__mesh;
 
-            var body = '';
+          return proxyMesh.event.proxy.on('dashboard-list-authorized-happening', function(data){
+            events['dashboard-list-authorized-happening'] = data;
+          })
+        })
+        .then(function(e){
 
-            res.on('data', function(chunk) {
-              body += chunk;
-            });
+          if (e) return finish(e);
 
-            res.on('end', function() {
+          return  proxyMesh.event.proxy.on('dashboard-list-authorized-happened', function(data){
+            events['dashboard-list-authorized-happened'] = data;
+          })
+        })
+        .then(function(e){
 
-              console.log('successfully queried :::', body);
+          if (e) return finish(e);
 
-              proxyService.stop()
-                .then(function(){
-                  done();
-                })
-                .catch(done)
-            });
+          return  proxyMesh.event.proxy.on('dashboard-list-authorized-error', function(data){
+            events['dashboard-list-authorized-error'] = data;
+          })
+        })
+        .then(function(e){
 
-          }).on('error', function(e) {
-            done(e);
+          if (e) return finish(e);
+
+          return adminClient.login({
+            username: '_ADMIN',
+            password:'happn'
           });
         })
-        .catch(function(e){
-          done(e);
-        })
+        .then(function(){
 
+          return testUtils.doRequest('http', '127.0.0.1', 55000, '/proxy/dashboardListAuthorized', adminClient.token);
+        })
+        .then(function(response){
+
+          expect(response.error).to.be(null);
+
+          var body = JSON.parse(response.body);
+
+          expect(body.dashboards.length).to.be(0);
+
+          proxyService.stop()
+            .then(finish)
+            .catch(function(e){
+              console.warn('failed stopping proxy service: ' + e.toString());
+              finish(proxyError);
+            });
+        })
+        .catch(finish);
+    });
+
+    it('starts the proxy service, we test pushing requests through it to elasticsearch, using default listen port 55555 target http://localhost:9200', function (done) {
+
+      this.timeout(15000);
+
+      var proxyService = new Service();
+
+      var proxyConfig = {
+        proxy: {
+          dashboardListAuthorizedHandler: function (req, res, next, $happn, $origin) {
+            console.log('auth-dashboards called:::', req.url, $origin);
+            next();
+          },
+          proxyHandler: function (proxyReq, req, res, options) {
+            console.log('proxy-request called:::', req.url);
+          }
+        }
+      };
+
+      var events = {};
+
+      var finish = function(e){
+
+        if (e) return done(e);
+
+        setTimeout(done, 2000);
+      };
+
+      var proxyMesh;
+
+      proxyService
+
+        .proxy(proxyConfig)
+
+        .then(function () {
+
+          proxyMesh = proxyService.__mesh;
+
+          return proxyMesh.event.proxy.on('handle-request-happening', function(data){
+            events['handle-request-happening'] = data;
+          })
+        })
+        .then(function(e){
+
+          if (e) return finish(e);
+
+          return  proxyMesh.event.proxy.on('handle-request-happened', function(data){
+            events['handle-request-happened'] = data;
+          })
+        })
+        .then(function(e){
+
+          if (e) return finish(e);
+
+          return  proxyMesh.event.proxy.on('handle-request-error', function(data){
+            events['handle-request-error'] = data;
+          })
+        })
+        .then(function(e){
+
+          if (e) return finish(e);
+
+          return testUtils.doRequest('http', 'localhost', 55555, '/_cat/indices?v');
+        })
+        .then(function(response){
+
+          //console.log('body:::', proxyError, response, body);
+
+          expect(response.error).to.be(null);
+
+          expect(response.body).to.not.be(null);
+
+          proxyService.stop()
+
+            .then(finish)
+
+            .catch(function(e){
+              console.warn('failed stopping proxy service: ' + e.toString());
+              finish(new Error(response.error));
+            });
+        })
+        .catch(finish);
     });
   });
 });
