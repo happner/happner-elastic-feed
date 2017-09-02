@@ -6,17 +6,73 @@ var service = new Service();
 
 var serviceType = 'proxy';
 
-//TODO: allow for passing in [array] of services and configs to append
+var async = require("async");
 
-service
+var utilities = require("../lib/utilities").create();
 
-  .proxy(config)
+var services = utilities.readConfigArgv({"exitOnFail": true});
 
-  .then(function () {
+process.on('uncaughtException', __stop);
 
-    console.log(serviceType + ' service started...');
-  })
-  .catch(function(e){
+process.on('exit', __stop);
 
-    console.warn(serviceType + ' failed to start: ' + e.toString());
-  });
+process.on('SIGTERM', __stop);
+
+process.on('SIGINT', __stop);
+
+if (Object.keys(services).length == 0) {
+
+  console.warn('missing service arguments in format node service/start [service name]=service.nestedconfig, ie: node service/start proxy=proxy.port:55555,proxy.target:http://localhost:9200');
+  __stop();
+}
+
+var currentlyStarting;
+
+async.eachSeries(Object.keys(services), function (serviceName, serviceCB) {
+
+  currentlyStarting = serviceName;
+
+  var serviceConfig = services[serviceName];
+
+  service[serviceName].apply(service, serviceConfig)
+
+    .then(function () {
+
+      console.log(serviceType + ' service started...');
+      serviceCB();
+    })
+    .catch(function (e) {
+
+      console.warn(serviceType + ' failed to start: ' + e.toString());
+      serviceCB(e);
+    });
+
+}, function (e) {
+
+  if (e) {
+    console.warn('failed starting service: ' + currentlyStarting);
+    return __stop(e);
+  }
+
+  console.log('started all services!');
+});
+
+function __stop(error) {
+
+  var complete = function (e) {
+
+    e = e ? e : error;
+
+    if (e) {
+
+      console.warn('stop failed: ' + e.toString());
+      return process.exit(1);
+    }
+
+    process.exit(0);
+  };
+
+  if (!service) return complete();
+
+  service.stop().then(complete).catch(complete);
+}

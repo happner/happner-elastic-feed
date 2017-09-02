@@ -20,6 +20,15 @@ describe('happner-elastic-feed-functional-tests', function () {
 
   var Mesh = require('happner-2');
 
+  context('utilities', function () {
+
+    var utilities = require("../lib/utilities").create();
+
+    var json = utilities.__splitOptions('node service/start proxy=proxy.port=55555,proxy.target=http://localhost:9200', {});
+
+    console.log(json);
+  });
+
   context('queue', function () {
 
     it('tests the queue functions', function (done) {
