@@ -20,16 +20,50 @@ describe('happner-elastic-feed-functional-tests', function () {
 
   var Mesh = require('happner-2');
 
-  context('utilities', function () {
+  context ('utilities', function () {
 
-    var utilities = require("../lib/utilities").create();
+    it('tests commandline options', function (done) {
 
-    var json = utilities.__splitOptions('node service/start proxy=proxy.port=55555,proxy.target=http://localhost:9200', {});
+      var utilities = require("../lib/utilities").create();
 
-    console.log(json);
+      var json = {};
+
+      utilities.__splitOptions('proxy=proxy.port=55555,proxy.target=http://localhost:9200', json);
+
+      expect(json.proxy).to.eql({proxy: {port: '55555', target: 'http://localhost:9200'}});
+
+      done();
+    });
+
+    it('tests cloneArray emthod', function (done) {
+
+      var utilities = require("../lib/utilities").create();
+
+      var toClone = ["three", {"two": 2}, 1];
+
+      var cloned = utilities.cloneArray(toClone);
+
+      expect(cloned[0]).to.be("three");
+
+      expect(cloned[1]["two"]).to.be(2);
+
+      expect(cloned[2]).to.be(1);
+
+      cloned.push("four");
+
+      toClone[1]["two"] = 6;
+
+      expect(toClone.length).to.be(3);
+
+      expect(cloned[3]).to.be("four");
+
+      expect(toClone[1]["two"]).to.be(6);
+
+      done();
+    });
   });
 
-  context('queue', function () {
+  context ('queue', function () {
 
     it('tests the queue functions', function (done) {
 
@@ -534,7 +568,7 @@ describe('happner-elastic-feed-functional-tests', function () {
     });
   });
 
-  context('feeds and dashboards', function () {
+  context ('feeds and dashboards', function () {
 
     it('creates, updates and lists a feed', function (done) {
 
@@ -553,6 +587,8 @@ describe('happner-elastic-feed-functional-tests', function () {
           }
         }
       };
+
+      var feedConfig = {};
 
       var feedWorkerConfig = {
         name: 'happner-feed-worker1',
@@ -586,6 +622,9 @@ describe('happner-elastic-feed-functional-tests', function () {
 
       queueService
         .queue(queueConfig)
+        .then(function () {
+          return feedService.feed(feedConfig);
+        })
         .then(function () {
           return feedService.worker(feedWorkerConfig);
         })
@@ -677,7 +716,7 @@ describe('happner-elastic-feed-functional-tests', function () {
     });
   });
 
-  context('portal & proxy', function () {
+  context ('portal & proxy', function () {
 
     it('starts the proxy service, log in with the _ADMIN account, get the happn_token, then call the authDashboards web method to get available dashboards.', function (done) {
 
@@ -689,7 +728,7 @@ describe('happner-elastic-feed-functional-tests', function () {
 
             //console.log('auth-dashboards called:::', req.url);
 
-            res.end(JSON.stringify({dashboards:[]}));
+            res.end(JSON.stringify({dashboards: []}));
           },
           proxyHandler: function (proxyReq, req, res, options) {
 
@@ -700,7 +739,7 @@ describe('happner-elastic-feed-functional-tests', function () {
 
       var events = {};
 
-      var finish = function(e){
+      var finish = function (e) {
 
         done(e);
       };
@@ -717,40 +756,40 @@ describe('happner-elastic-feed-functional-tests', function () {
 
           proxyMesh = proxyService.__mesh;
 
-          return proxyMesh.event.proxy.on('dashboard-list-authorized-happening', function(data){
+          return proxyMesh.event.proxy.on('dashboard-list-authorized-happening', function (data) {
             events['dashboard-list-authorized-happening'] = data;
           })
         })
-        .then(function(e){
+        .then(function (e) {
 
           if (e) return finish(e);
 
-          return  proxyMesh.event.proxy.on('dashboard-list-authorized-happened', function(data){
+          return proxyMesh.event.proxy.on('dashboard-list-authorized-happened', function (data) {
             events['dashboard-list-authorized-happened'] = data;
           })
         })
-        .then(function(e){
+        .then(function (e) {
 
           if (e) return finish(e);
 
-          return  proxyMesh.event.proxy.on('dashboard-list-authorized-error', function(data){
+          return proxyMesh.event.proxy.on('dashboard-list-authorized-error', function (data) {
             events['dashboard-list-authorized-error'] = data;
           })
         })
-        .then(function(e){
+        .then(function (e) {
 
           if (e) return finish(e);
 
           return adminClient.login({
             username: '_ADMIN',
-            password:'happn'
+            password: 'happn'
           });
         })
-        .then(function(){
+        .then(function () {
 
           return testUtils.doRequest('http', '127.0.0.1', 55000, '/proxy/dashboardListAuthorized', adminClient.token);
         })
-        .then(function(response){
+        .then(function (response) {
 
           expect(response.error).to.be(null);
 
@@ -760,7 +799,7 @@ describe('happner-elastic-feed-functional-tests', function () {
 
           proxyService.stop()
             .then(finish)
-            .catch(function(e){
+            .catch(function (e) {
               console.warn('failed stopping proxy service: ' + e.toString());
               finish(proxyError);
             });
@@ -788,7 +827,7 @@ describe('happner-elastic-feed-functional-tests', function () {
 
       var events = {};
 
-      var finish = function(e){
+      var finish = function (e) {
 
         if (e) return done(e);
 
@@ -805,33 +844,33 @@ describe('happner-elastic-feed-functional-tests', function () {
 
           proxyMesh = proxyService.__mesh;
 
-          return proxyMesh.event.proxy.on('handle-request-happening', function(data){
+          return proxyMesh.event.proxy.on('handle-request-happening', function (data) {
             events['handle-request-happening'] = data;
           })
         })
-        .then(function(e){
+        .then(function (e) {
 
           if (e) return finish(e);
 
-          return  proxyMesh.event.proxy.on('handle-request-happened', function(data){
+          return proxyMesh.event.proxy.on('handle-request-happened', function (data) {
             events['handle-request-happened'] = data;
           })
         })
-        .then(function(e){
+        .then(function (e) {
 
           if (e) return finish(e);
 
-          return  proxyMesh.event.proxy.on('handle-request-error', function(data){
+          return proxyMesh.event.proxy.on('handle-request-error', function (data) {
             events['handle-request-error'] = data;
           })
         })
-        .then(function(e){
+        .then(function (e) {
 
           if (e) return finish(e);
 
           return testUtils.doRequest('http', 'localhost', 55555, '/_cat/indices?v');
         })
-        .then(function(response){
+        .then(function (response) {
 
           //console.log('body:::', proxyError, response, body);
 
@@ -843,7 +882,7 @@ describe('happner-elastic-feed-functional-tests', function () {
 
             .then(finish)
 
-            .catch(function(e){
+            .catch(function (e) {
               console.warn('failed stopping proxy service: ' + e.toString());
               finish(new Error(response.error));
             });

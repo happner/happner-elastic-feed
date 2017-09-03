@@ -22,7 +22,7 @@ process.on('SIGINT', __stop);
 
 if (Object.keys(services).length == 0) {
 
-  console.warn('missing service arguments in format node service/start [service name]=service.nestedconfig, ie: node service/start proxy=proxy.port:55555,proxy.target:http://localhost:9200');
+  console.warn('missing service arguments in format node service/start [service name]=service, ie: node service/start proxy=proxy.port:55555,proxy.target:http://localhost:9200');
   __stop();
 }
 
