@@ -12,7 +12,7 @@ describe('happner-elastic-feed-sanity-tests', function () {
 
   var uuid = require('uuid');
 
-  context('service', function () {
+  context ('service', function () {
 
     it('starts up and stops an elastic emitter mesh', function (done) {
 
@@ -91,6 +91,9 @@ describe('happner-elastic-feed-sanity-tests', function () {
           return service.worker(workerConfig);
         })
         .then(function () {
+          return service.feed(workerConfig);
+        })
+        .then(function () {
           return service.subscriber(subscriberConfig);
         })
         .then(function () {
@@ -99,45 +102,6 @@ describe('happner-elastic-feed-sanity-tests', function () {
         .then(function () {
           setTimeout(done, 3000);
         })
-        .catch(done);
-    });
-
-    xit('starts up and stops a combined mesh', function (done) {
-
-      var service = new Service();
-
-      var queueConfig = {
-        queue: {
-          jobTypes: {
-            "subscriber": {concurrency: 10},
-            "emitter": {concurrency: 10}
-          }
-        }
-      };
-
-      var subscriberConfig = {};
-      var workerConfig = {queue: queueConfig.queue};
-      var emitterConfig = {};
-      var portalConfig = {};
-
-      service
-        .portal(portalConfig)
-        .then(function () {
-          return service.queue(queueConfig);
-        })
-        .then(function () {
-          return service.worker(workerConfig);
-        })
-        .then(function () {
-          return service.emitter(emitterConfig);
-        })
-        .then(function () {
-          return service.subscriber(subscriberConfig);
-        })
-        .then(function () {
-          return service.stop();
-        })
-        .then(done)
         .catch(done);
     });
 
@@ -188,6 +152,12 @@ describe('happner-elastic-feed-sanity-tests', function () {
         })
         .then(function () {
           return worker2Service.worker(worker2Config);
+        })
+        .then(function () {
+          return worker1Service.feed(worker1Config);
+        })
+        .then(function () {
+          return worker2Service.feed(worker2Config);
         })
         .then(function () {
           return new Promise(function (resolve, reject) {
@@ -440,6 +410,12 @@ describe('happner-elastic-feed-sanity-tests', function () {
           return emitterService.worker(emitterWorkerConfig);
         })
         .then(function () {
+          return subscriberService.feed(subscriberWorkerConfig);
+        })
+        .then(function () {
+          return emitterService.feed(emitterWorkerConfig);
+        })
+        .then(function () {
           return subscriberService.subscriber(subscriberConfig);
         })
         .then(function () {
@@ -681,6 +657,12 @@ describe('happner-elastic-feed-sanity-tests', function () {
         })
         .then(function () {
           return emitterService.worker(emitterWorkerConfig);
+        })
+        .then(function () {
+          return emitterService.feed(emitterWorkerConfig);
+        })
+        .then(function () {
+          return subscriberService.feed(subscriberConfig);
         })
         .then(function () {
           return emitterService.emitter(emitterWorkerConfig);

@@ -20,7 +20,7 @@ describe('happner-elastic-feed-functional-tests', function () {
 
   var Mesh = require('happner-2');
 
-  context ('utilities', function () {
+  context('utilities', function () {
 
     it('tests commandline options', function (done) {
 
@@ -63,7 +63,7 @@ describe('happner-elastic-feed-functional-tests', function () {
     });
   });
 
-  context ('queue', function () {
+  context('queue', function () {
 
     it('tests the queue functions', function (done) {
 
@@ -568,7 +568,7 @@ describe('happner-elastic-feed-functional-tests', function () {
     });
   });
 
-  context ('feeds and dashboards', function () {
+  context('feeds and dashboards', function () {
 
     it('creates, updates and lists a feed', function (done) {
 
@@ -581,6 +581,7 @@ describe('happner-elastic-feed-functional-tests', function () {
       var feedRandomName = uuid.v4();
 
       var queueConfig = {
+        name: 'happner-feed-queue',
         queue: {
           jobTypes: {
             "feed": {concurrency: 10}
@@ -588,11 +589,9 @@ describe('happner-elastic-feed-functional-tests', function () {
         }
       };
 
-      var feedConfig = {};
-
       var feedWorkerConfig = {
         name: 'happner-feed-worker1',
-        queue: {username: '_ADMIN', password: 'happn', port: 55000, jobTypes: ["feed"]},
+        queue: {username: '_ADMIN', password: 'happn', port: 55000, jobTypes: ["feed"], name: 'happner-feed-queue'},
         data: {
           port: 55001
         }
@@ -621,12 +620,16 @@ describe('happner-elastic-feed-functional-tests', function () {
       var error = null;
 
       queueService
+
         .queue(queueConfig)
+
         .then(function () {
-          return feedService.feed(feedConfig);
+
+          return feedService.worker(feedWorkerConfig);
         })
         .then(function () {
-          return feedService.worker(feedWorkerConfig);
+
+          return feedService.feed(feedWorkerConfig);
         })
         .then(function () {
 
@@ -706,17 +709,17 @@ describe('happner-elastic-feed-functional-tests', function () {
           });
         })
         .then(function () {
-          return queueService.stop();
+          return feedService.stop();
         })
         .then(function () {
-          return feedService.stop();
+          return queueService.stop();
         })
         .then(done)
         .catch(done);
     });
   });
 
-  context ('portal & proxy', function () {
+  context('portal & proxy', function () {
 
     it('starts the proxy service, log in with the _ADMIN account, get the happn_token, then call the authDashboards web method to get available dashboards.', function (done) {
 
@@ -726,13 +729,13 @@ describe('happner-elastic-feed-functional-tests', function () {
         proxy: {
           dashboardListAuthorizedHandler: function (req, res, next, $happn, $origin) {
 
-            //console.log('auth-dashboards called:::', req.url);
+            //console.log('auth-dashboards called:', req.url);
 
             res.end(JSON.stringify({dashboards: []}));
           },
           proxyHandler: function (proxyReq, req, res, options) {
 
-            //console.log('proxy-request called:::', req.url);
+            //console.log('proxy-request called:', req.url);
           }
         }
       };
@@ -816,11 +819,11 @@ describe('happner-elastic-feed-functional-tests', function () {
       var proxyConfig = {
         proxy: {
           dashboardListAuthorizedHandler: function (req, res, next, $happn, $origin) {
-            console.log('auth-dashboards called:::', req.url, $origin);
+            //console.log('auth-dashboards called:', req.url, $origin);
             next();
           },
           proxyHandler: function (proxyReq, req, res, options) {
-            console.log('proxy-request called:::', req.url);
+            //console.log('proxy-request called:', req.url);
           }
         }
       };
@@ -872,7 +875,7 @@ describe('happner-elastic-feed-functional-tests', function () {
         })
         .then(function (response) {
 
-          //console.log('body:::', proxyError, response, body);
+          //console.log('body:', proxyError, response, body);
 
           expect(response.error).to.be(null);
 

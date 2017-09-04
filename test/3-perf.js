@@ -87,10 +87,10 @@ describe('happner-elastic-feed-performance-tests', function () {
 
         emitterService.stop()
           .then(function () {
-            return queueService.stop();
+            return subscriberService.stop();
           })
           .then(function () {
-            return subscriberService.stop();
+            return queueService.stop();
           })
           .then(function () {
             done(e);
@@ -111,6 +111,12 @@ describe('happner-elastic-feed-performance-tests', function () {
       })
       .then(function () {
         return emitterService.worker(emitterWorkerConfig);
+      })
+      .then(function () {
+        return emitterService.feed(emitterWorkerConfig);
+      })
+      .then(function () {
+        return subscriberService.feed(subscriberConfig);
       })
       .then(function () {
         return emitterService.emitter(emitterWorkerConfig);
@@ -270,10 +276,10 @@ describe('happner-elastic-feed-performance-tests', function () {
 
         emitterService.stop()
           .then(function () {
-            return queueService.stop();
+            return subscriberService.stop();
           })
           .then(function () {
-            return subscriberService.stop();
+            return queueService.stop();
           })
           .then(function () {
             done(e);
@@ -296,6 +302,12 @@ describe('happner-elastic-feed-performance-tests', function () {
       })
       .then(function () {
         return emitterService.worker(emitterWorkerConfig);
+      })
+      .then(function () {
+        return subscriberService.feed(subscriberWorkerConfig);
+      })
+      .then(function () {
+        return emitterService.feed(emitterWorkerConfig);
       })
       .then(function () {
         return emitterService.emitter(emitterWorkerConfig);
@@ -472,10 +484,10 @@ describe('happner-elastic-feed-performance-tests', function () {
 
         emitterService.stop()
           .then(function () {
-            return queueService.stop();
+            return subscriberService.stop();
           })
           .then(function () {
-            return subscriberService.stop();
+            return queueService.stop();
           })
           .then(function () {
             done(e);
@@ -496,6 +508,12 @@ describe('happner-elastic-feed-performance-tests', function () {
       })
       .then(function () {
         return emitterService.worker(emitterWorkerConfig);
+      })
+      .then(function () {
+        return emitterService.feed(emitterWorkerConfig);
+      })
+      .then(function () {
+        return subscriberService.feed(subscriberConfig);
       })
       .then(function () {
         return emitterService.emitter(emitterWorkerConfig);
