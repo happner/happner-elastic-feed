@@ -817,15 +817,7 @@ describe('happner-elastic-feed-functional-tests', function () {
       var proxyService = new Service();
 
       var proxyConfig = {
-        proxy: {
-          dashboardListAuthorizedHandler: function (req, res, next, $happn, $origin) {
-            //console.log('auth-dashboards called:', req.url, $origin);
-            next();
-          },
-          proxyHandler: function (proxyReq, req, res, options) {
-            //console.log('proxy-request called:', req.url);
-          }
-        }
+        proxy: {}
       };
 
       var events = {};
@@ -880,6 +872,133 @@ describe('happner-elastic-feed-functional-tests', function () {
           expect(response.error).to.be(null);
 
           expect(response.body).to.not.be(null);
+
+          proxyService.stop()
+
+            .then(finish)
+
+            .catch(function (e) {
+              console.warn('failed stopping proxy service: ' + e.toString());
+              finish(new Error(response.error));
+            });
+        })
+        .catch(finish);
+    });
+
+    it.only('starts the proxy service, we test pushing through every method and ensure we get the correct events', function (done) {
+
+      this.timeout(15000);
+
+      var proxyService = new Service();
+
+      var proxyConfig = {
+        proxy: {}
+      };
+
+      var events = {};
+
+      var finish = function (e) {
+
+        if (e) return done(e);
+
+        setTimeout(done, 2000);
+      };
+
+      var adminClient = new Mesh.MeshClient({secure: true});
+
+      var proxyMesh;
+
+      proxyService
+
+        .proxy(proxyConfig)
+
+        .then(function () {
+
+          proxyMesh = proxyService.__mesh;
+
+          return proxyMesh.event.proxy.on('handle-request-happened', function (data) {
+            events['handle-request-happened'] = data;
+          });
+        })
+        .then(function (e) {
+
+          if (e) return finish(e);
+
+          return proxyMesh.event.proxy.on('kibana-authorize', function (data) {
+            events['kibana-authorize'] = data;
+          });
+        })
+        .then(function (e) {
+
+          if (e) return finish(e);
+
+          return proxyMesh.event.proxy.on('kibana-available-dashboards', function (data) {
+            events['kibana-available-dashboards'] = data;
+          })
+        })
+        .then(function (e) {
+
+          if (e) return finish(e);
+
+          return proxyMesh.event.proxy.on('kibana-request', function (data) {
+            events['kibana-request'] = data;
+          })
+        })
+        .then(function () {
+
+          return testUtils.doRequest('http', 'localhost', 55555, '/_cat/indices?v');
+        })
+        .then(function (response) {
+
+          expect(response.error).to.be(null);
+
+          expect(response.body).to.not.be(null);
+
+          return adminClient.login({
+            username: '_ADMIN',
+            password: 'happn'
+          });
+        })
+        .then(function () {
+
+          return testUtils.doRequest('http', 'localhost', 4444, '/auth?happn_token=' + adminClient.token + '&redirect=' + encodeURIComponent('/test/path'));
+        })
+        .then(function (response) {
+
+          expect(response.error).to.be(null);
+
+          expect(response.body).to.not.be(null);
+
+          return testUtils.doRequest('http', 'localhost', 4444, '/dashboards');
+        })
+        .then(function (response) {
+
+          expect(response.error).to.be(null);
+
+          expect(response.body).to.not.be(null);
+
+          return testUtils.doRequest('http', 'localhost', 4444, '/app/kibana/dashboard');
+        })
+        .then(function (response) {
+
+          expect(response.error).to.be(null);
+
+          expect(response.body).to.not.be(null);
+
+          return new Promise(function(resolve){
+            setTimeout(resolve, 2000);
+          })
+        })
+        .then(function () {
+
+          //console.log('body:', proxyError, response, body);
+
+          console.log('events:::',events);
+
+          // expect(events['kibana-available-dashboards']).to.be();
+          // expect(events['kibana-request']).to.be();
+          // expect(events['kibana-authorize']).to.be();
+          // expect(events['handle-request-happened']).to.be();
 
           proxyService.stop()
 

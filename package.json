@@ -8,7 +8,8 @@
     "test-sanity": "mocha silence.js test/2-sanity.js",
     "test-perf": "mocha silence.js test/3-perf.js",
     "test-analyzer": "mocha silence.js test/analyzer/*",
-    "test-portal": "mocha silence.js test/portal/*"
+    "test-portal": "mocha silence.js test/portal/*",
+    "test-proxy": "mocha silence.js test/wild-proxy/*"
   },
   "devDependencies": {
     "assert": "^1.4.0",
@@ -19,7 +20,7 @@
     "rimraf": "^2.4.4"
   },
   "dependencies": {
-    "async": "1.5.2",
+    "async": "^2.5.0",
     "callsites": "2.0.0",
     "elasticsearch": "13.2.0",
     "happn-3": "3.0.0",
