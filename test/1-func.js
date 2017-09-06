@@ -895,7 +895,7 @@ describe('happner-elastic-feed-functional-tests', function () {
         proxy: {}
       };
 
-      var events = {};
+      var events = [];
 
       var finish = function (e) {
 
@@ -917,7 +917,7 @@ describe('happner-elastic-feed-functional-tests', function () {
           proxyMesh = proxyService.__mesh;
 
           return proxyMesh.event.proxy.on('handle-request-happened', function (data) {
-            events['handle-request-happened'] = data;
+            events.push({event:'handle-request-happened', data:data})
           });
         })
         .then(function (e) {
@@ -925,7 +925,7 @@ describe('happner-elastic-feed-functional-tests', function () {
           if (e) return finish(e);
 
           return proxyMesh.event.proxy.on('kibana-authorize', function (data) {
-            events['kibana-authorize'] = data;
+            events.push({event:'kibana-authorize', data:data})
           });
         })
         .then(function (e) {
@@ -933,7 +933,7 @@ describe('happner-elastic-feed-functional-tests', function () {
           if (e) return finish(e);
 
           return proxyMesh.event.proxy.on('kibana-available-dashboards', function (data) {
-            events['kibana-available-dashboards'] = data;
+            events.push({event:'kibana-available-dashboards', data:data})
           })
         })
         .then(function (e) {
@@ -941,7 +941,7 @@ describe('happner-elastic-feed-functional-tests', function () {
           if (e) return finish(e);
 
           return proxyMesh.event.proxy.on('kibana-request', function (data) {
-            events['kibana-request'] = data;
+            events.push({event:'kibana-request', data:data})
           })
         })
         .then(function () {
