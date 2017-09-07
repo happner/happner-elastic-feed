@@ -969,6 +969,8 @@ describe('happner-elastic-feed-functional-tests', function () {
 
           expect(response.body).to.not.be(null);
 
+          console.log('auth body:::', response.body, response.headers);
+
           return testUtils.doRequest('http', 'localhost', 4444, '/dashboards');
         })
         .then(function (response) {
