@@ -24,7 +24,7 @@ TestUtilities.prototype.doRequest = function (protocol, host, port, path, token)
 
       if (path.substring(0, 1) != '/') path = '/' + path;
 
-      var options = {url: protocol + '://' + host + ':' + port + path};
+      var options = {url: protocol + '://' + host + ':' + port + path, jar:true};
 
       if (token) options.url += '?happn_token=' + token;
 
