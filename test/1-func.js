@@ -721,24 +721,11 @@ describe('happner-elastic-feed-functional-tests', function () {
 
   context('portal & proxy', function () {
 
-    it('starts the proxy service, log in with the _ADMIN account, get the happn_token, then call the authDashboards web method to get available dashboards.', function (done) {
+    xit('starts the proxy service, log in with the _ADMIN account, get the happn_token, then call the authDashboards web method to get available dashboards.', function (done) {
 
       var proxyService = new Service();
 
-      var proxyConfig = {
-        proxy: {
-          dashboardListAuthorizedHandler: function (req, res, next, $happn, $origin) {
-
-            //console.log('auth-dashboards called:', req.url);
-
-            res.end(JSON.stringify({dashboards: []}));
-          },
-          proxyHandler: function (proxyReq, req, res, options) {
-
-            //console.log('proxy-request called:', req.url);
-          }
-        }
-      };
+      var proxyConfig = {};
 
       var events = {};
 
@@ -885,7 +872,7 @@ describe('happner-elastic-feed-functional-tests', function () {
         .catch(finish);
     });
 
-    it.only('starts the proxy service, we test pushing through every method and ensure we get the correct events', function (done) {
+    it('starts the proxy service, we test pushing through every method and ensure we get the correct events', function (done) {
 
       this.timeout(15000);
 
@@ -961,7 +948,7 @@ describe('happner-elastic-feed-functional-tests', function () {
         })
         .then(function () {
 
-          return testUtils.doRequest('http', 'localhost', 4444, '/auth?happn_token=' + adminClient.token + '&redirect=' + encodeURIComponent('/test/path'));
+          return testUtils.doRequest('http', 'localhost', 4444, '/auth?happn_token=' + adminClient.token + '&redirect=' + encodeURIComponent('/app/kibana'));
         })
         .then(function (response) {
 
@@ -969,7 +956,9 @@ describe('happner-elastic-feed-functional-tests', function () {
 
           expect(response.body).to.not.be(null);
 
-          console.log('auth body:::', response.body, response.headers);
+          expect(response.body.toString().indexOf('<title>Kibana</title>') >= 0).to.be(true);
+
+          console.log('ok cool, fetched kibana page:::');
 
           return testUtils.doRequest('http', 'localhost', 4444, '/dashboards');
         })
@@ -993,14 +982,7 @@ describe('happner-elastic-feed-functional-tests', function () {
         })
         .then(function () {
 
-          //console.log('body:', proxyError, response, body);
-
-          console.log('events:::',events);
-
-          // expect(events['kibana-available-dashboards']).to.be();
-          // expect(events['kibana-request']).to.be();
-          // expect(events['kibana-authorize']).to.be();
-          // expect(events['handle-request-happened']).to.be();
+          //console.log('events:::',events);
 
           proxyService.stop()
 
