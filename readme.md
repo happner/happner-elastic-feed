@@ -186,6 +186,7 @@ instance.exchange.feed.upsert(feedData)
 ```vi
 
 elasticsearch.url: "http://localhost:55555"
+elasticsearch.customHeaders: { "kibana_server_secret" : "username=_ADMIN&password=happn" }
 
 ```
 2. download and run the feeds service as a proxy:
@@ -198,7 +199,7 @@ elasticsearch.url: "http://localhost:55555"
 
 ```
 
-3. navigate to http://localhost:5601/app/kibana and check proxy-ing is working.
+3. navigate to http://localhost:4444/app/kibana and check proxy-ing is working.
 
 #### running the proxy as a component:
 
