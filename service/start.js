@@ -69,6 +69,8 @@ function __stop(error) {
       return process.exit(1);
     }
 
+    console.log('services stopped successfully.');
+
     process.exit(0);
   };
 
