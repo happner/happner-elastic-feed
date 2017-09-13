@@ -7,9 +7,7 @@
     "test-func": "mocha silence.js test/1-func.js",
     "test-sanity": "mocha silence.js test/2-sanity.js",
     "test-perf": "mocha silence.js test/3-perf.js",
-    "test-analyzer": "mocha silence.js test/analyzer/*",
-    "test-portal": "mocha silence.js test/portal/*",
-    "test-proxy": "mocha silence.js test/wild-proxy/*"
+    "test-rules": "mocha silence.js test/rules-engine/*"
   },
   "devDependencies": {
     "assert": "^1.4.0",
