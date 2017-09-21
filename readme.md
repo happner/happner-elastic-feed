@@ -187,6 +187,7 @@ instance.exchange.feed.upsert(feedData)
 
 elasticsearch.url: "http://localhost:55555"
 elasticsearch.customHeaders: { "kibana_server_secret" : "username=_ADMIN&password=happn" }
+elasticsearch.requestHeadersWhitelist: [ authorization, cookie ]
 
 ```
 2. download and run the feeds service as a proxy:
