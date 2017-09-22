@@ -200,7 +200,7 @@ elasticsearch.requestHeadersWhitelist: [ authorization, cookie ]
 
 # to start the proxy with non-default settings:
 
-> node service/start proxy.log_output=true,proxy.elasticURL=http://10.0.25.30:9200
+> node service/start proxy=proxy.port=55555,proxy.target=http://localhost:9200,proxy.log_output=true,proxy.elasticURL=http://10.0.25.30:9200
 
 # if log_output=true - requests are logged to the console
 # the elasticURL is adjusted to point to the elastic service, elastic requests are proxied to
