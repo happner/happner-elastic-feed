@@ -33,6 +33,7 @@
     "lru-cache": "4.1.1",
     "redis-lru-cache": "0.1.0",
     "sift": "5.0.0",
+    "underscore.string": "^3.3.4",
     "uuid": "3.1.0",
     "wild-pare": "3.5.1",
     "wild-proxy": "^1.0.0"
