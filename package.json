@@ -23,6 +23,7 @@
     "elasticsearch": "13.2.0",
     "happn-3": "3.0.0",
     "happn-logger": "0.0.1",
+    "happn-service-mongo-2": "^1.2.0",
     "happn-util-crypto": "0.2.3",
     "happner-2": "5.2.0",
     "happner-elastic-dataprovider": "2.1.0",
