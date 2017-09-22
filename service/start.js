@@ -12,8 +12,6 @@ var utilities = require("../lib/utilities").create();
 
 var services = utilities.readConfigArgv({"exitOnFail": true});
 
-console.log('SERVICES:::', services);
-
 process.on('uncaughtException', __stop);
 
 process.on('exit', __stop);
