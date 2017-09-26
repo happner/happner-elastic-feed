@@ -34,7 +34,7 @@ async.eachSeries(Object.keys(services), function (serviceName, serviceCB) {
 
   var serviceConfig = services[serviceName];
 
-  service[serviceName].apply(service, serviceConfig)
+  service[serviceName].call(service, serviceConfig)
 
     .then(function () {
 
